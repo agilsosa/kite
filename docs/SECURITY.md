@@ -116,7 +116,12 @@ from its Home button, `Escape`, or the taskbar Kite home button.
 - Five failed attempts trigger a 30-second lockout.
 - The unlock session lives in main-process memory and expires after five
   minutes. Opening settings refreshes the session; closing settings clears it.
-- There is no PIN recovery path other than deleting the Kite config.
+- A successful remote-config sync replaces the PIN only when the response
+  includes `parentPin`. Kite hashes it locally with a fresh salt; the plain PIN
+  is never stored. Treat write access to the sync endpoint as equivalent to
+  knowing the adult PIN.
+- There is no PIN recovery path other than deleting the Kite config or
+  configuring a sync endpoint that sends a new PIN.
 
 ### Navigation and new windows
 

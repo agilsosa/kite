@@ -65,7 +65,11 @@ export function SyncSettings({ onApplied }: SyncSettingsProps) {
       setInfo(result.info);
       setEndpoint(result.info.endpoint ?? '');
       onApplied(result);
-      setDone('Datos actualizados desde el servidor.');
+      setDone(
+        result.pinUpdated
+          ? 'Datos y PIN de adultos actualizados desde el servidor.'
+          : 'Datos actualizados desde el servidor.',
+      );
     } catch (cause) {
       setError(errorMessage(cause));
     } finally {
@@ -80,7 +84,9 @@ export function SyncSettings({ onApplied }: SyncSettingsProps) {
         <p className="mt-1 max-w-2xl text-sm font-semibold text-ink-soft">
           La API debe devolver el estado completo del perfil. Al actualizar se
           reemplazan el nombre, el volumen máximo, las aplicaciones y los sitios
-          web actuales. El PIN de adultos no cambia.
+          web actuales. El PIN de adultos solo cambia si la API incluye el campo
+          opcional <span className="font-black">parentPin</span>; si no lo
+          incluye, se mantiene el PIN actual.
         </p>
 
         <div className="mt-4 rounded-xl border-2 border-marigold bg-marigold/20 p-3 text-sm font-semibold">
@@ -182,11 +188,22 @@ export function SyncSettings({ onApplied }: SyncSettingsProps) {
             </code>{' '}
             — opcional, reservado para funciones futuras.
           </li>
+          <li>
+            <code className="rounded bg-ink/10 px-1.5 py-0.5 font-black">
+              parentPin
+            </code>{' '}
+            — opcional, PIN de adultos de 4 a 8 dígitos. Si se incluye,
+            sustituye el PIN actual.
+          </li>
         </ul>
         <p className="mt-3 text-sm font-semibold text-ink-soft">
           Se puede añadir <span className="font-black">revision</span> para
           identificar la versión de los datos. Consulta la documentación de
           sincronización para ver el ejemplo completo.
+        </p>
+        <p className="mt-3 rounded-xl border-2 border-coral/60 bg-coral/10 p-3 text-sm font-semibold">
+          El servidor puede cambiar el PIN de adultos. Protege la dirección y el
+          contenido de la API: quien controle la respuesta puede cambiar el PIN.
         </p>
       </section>
     </div>

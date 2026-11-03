@@ -54,7 +54,8 @@ that provide the expected system tools.
   background, and installs only when a parent approves the restart from adult
   settings. See [Publishing updates](docs/UPDATES.md).
 - Lets a parent replace the whole child profile (name, volume cap, apps, and
-  websites) with JSON from an HTTPS endpoint. See
+  websites) with JSON from an HTTPS endpoint. The response may also include an
+  optional adult PIN. See
   [Remote configuration API](docs/REMOTE-CONFIG.md).
 
 ## Requirements
@@ -109,7 +110,10 @@ packaged app. Stop `npm start` before packaging for the same reason.
 5. Close settings. The parent session locks immediately.
 
 The PIN is stored in the encrypted Kite configuration. There is no recovery
-flow: removing the configuration file resets the PIN and all settings.
+flow: removing the configuration file resets the PIN and all settings. A parent
+can also configure a sync endpoint whose response includes `parentPin`; a
+successful sync then replaces the PIN. See
+[Remote configuration API](docs/REMOTE-CONFIG.md).
 
 ## Project layout
 

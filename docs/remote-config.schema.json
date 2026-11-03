@@ -35,6 +35,11 @@
       "minLength": 1,
       "maxLength": 40
     },
+    "parentPin": {
+      "type": "string",
+      "pattern": "^[0-9]{4,8}$",
+      "description": "Optional adult PIN. When present, a successful sync replaces the locally stored PIN. When omitted, the current PIN is kept."
+    },
     "volumeCap": {
       "type": "integer",
       "minimum": 0,

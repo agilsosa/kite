@@ -37,14 +37,18 @@ A successful response **replaces every parent-managed value**:
 - `allowedOrigins`
 - `allowedApps`
 - `features`
+- `parentPin` (only when the response includes it; otherwise the current PIN
+  is kept)
 
-The parent PIN, the sample-app migration marker, and internal application
-state are never changed by the response. If validation fails, nothing is
-applied; the previous configuration stays in place. The endpoint itself is
-stored as soon as it is valid so the parent can retry after a network error.
+The sample-app migration marker and internal application state are never
+changed by the response. If validation fails, nothing is applied; the previous
+configuration stays in place. The endpoint itself is stored as soon as it is
+valid so the parent can retry after a network error.
 
 Because this is a full-state replacement, the server must always send every
-field, including empty lists. It is not a patch or merge API.
+required field, including empty lists. It is not a patch or merge API.
+`parentPin` is the only optional value that is replaced rather than cleared
+when omitted, so a server that does not manage PINs keeps working unchanged.
 
 ## Response shape
 
@@ -53,6 +57,7 @@ field, including empty lists. It is not a patch or merge API.
   "schemaVersion": 1,
   "revision": "2026-11-01T12:00:00Z",
   "childName": "Lucía",
+  "parentPin": "4821",
   "volumeCap": 45,
   "allowedOrigins": ["https://pbskids.org", "https://www.starfall.com"],
   "allowedApps": [
@@ -86,15 +91,16 @@ is in [`remote-config.example.json`](remote-config.example.json).
 
 ## Fields
 
-| Field            | Type             | Required | Rules                                                                                                                                                  |
-| ---------------- | ---------------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `schemaVersion`  | integer          | Yes      | Must be `1`. A different value is rejected as incompatible.                                                                                            |
-| `revision`       | string or number | No       | 1–100 characters after trimming. Stored and shown in parent settings. Useful for cache busting and support.                                            |
-| `childName`      | string           | Yes      | 1–40 characters after trimming.                                                                                                                        |
-| `volumeCap`      | integer          | Yes      | `0`–`100`. This is the maximum volume Kite allows and the profile's volume setting. Kite has no separate startup volume.                               |
-| `allowedOrigins` | string[]         | Yes      | At most 50. Each value must be an `https://` URL; Kite stores only its origin, for example `https://example.com`. Duplicates are removed.              |
-| `allowedApps`    | object[]         | Yes      | At most 30. See the app fields below.                                                                                                                  |
-| `features`       | object           | No       | Reserved for future server-driven features. Stored unchanged by this version. Maximum 64 KiB, nesting depth 4, 50 keys per object, 50 items per array. |
+| Field            | Type             | Required | Rules                                                                                                                                                               |
+| ---------------- | ---------------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `schemaVersion`  | integer          | Yes      | Must be `1`. A different value is rejected as incompatible.                                                                                                         |
+| `revision`       | string or number | No       | 1–100 characters after trimming. Stored and shown in parent settings. Useful for cache busting and support.                                                         |
+| `childName`      | string           | Yes      | 1–40 characters after trimming.                                                                                                                                     |
+| `parentPin`      | string           | No       | 4–8 digits, for example `"4821"`. When present, Kite hashes it locally with a fresh salt and replaces the current adult PIN. When omitted, the current PIN is kept. |
+| `volumeCap`      | integer          | Yes      | `0`–`100`. This is the maximum volume Kite allows and the profile's volume setting. Kite has no separate startup volume.                                            |
+| `allowedOrigins` | string[]         | Yes      | At most 50. Each value must be an `https://` URL; Kite stores only its origin, for example `https://example.com`. Duplicates are removed.                           |
+| `allowedApps`    | object[]         | Yes      | At most 30. See the app fields below.                                                                                                                               |
+| `features`       | object           | No       | Reserved for future server-driven features. Stored unchanged by this version. Maximum 64 KiB, nesting depth 4, 50 keys per object, 50 items per array.              |
 
 Unknown **top-level** fields are ignored, so a newer server can add metadata
 without breaking older clients. Add actual settings that Kite should act on
@@ -151,6 +157,7 @@ error for the first problem found, for example:
 - `La API respondió con HTTP 404`
 - `La API no devolvió JSON válido`
 - `La versión del formato de sincronización no es compatible. Se esperaba schemaVersion 1.`
+- `El PIN de adultos debe tener de 4 a 8 dígitos`
 - `El sitio web en la posición 2 no es válido: Los sitios web deben usar HTTPS`
 - `La aplicación "Firefox" usa un id repetido (firefox)`
 
@@ -161,11 +168,14 @@ rather than silently dropping the extras.
 
 The endpoint is configured by a parent, so Kite treats its response as trusted
 configuration. It can add websites and native executables to the child's
-allow-list. Protect the endpoint and the server that serves it:
+allow-list and, when `parentPin` is present, replace the adult PIN. Protect the
+endpoint and the server that serves it:
 
 - Use HTTPS with a valid certificate.
 - Do not let the response be editable by the child or an untrusted party.
 - Use a stable, versioned URL and return only JSON.
+- Treat write access to the endpoint as equivalent to knowing the adult PIN.
+- Do not log PIN values, and avoid serving them from a URL the child can reach.
 - Kite does not sign or verify the response, and it does not authenticate to
   the endpoint in this version.
 

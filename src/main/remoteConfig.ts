@@ -145,6 +145,7 @@ interface ParsedRemoteState {
   allowedApps: AllowedApp[];
   revision: string | null;
   features: Record<string, JsonValue> | null;
+  parentPin: string | null;
 }
 
 function parseRemoteState(raw: unknown): ParsedRemoteState {
@@ -161,6 +162,16 @@ function parseRemoteState(raw: unknown): ParsedRemoteState {
   }
 
   const childName = assertText(candidate.childName, 'El nombre del niño', 40);
+
+  let parentPin: string | null = null;
+
+  if (candidate.parentPin !== undefined) {
+    parentPin = assertText(candidate.parentPin, 'El PIN de adultos', 8);
+
+    if (!/^\d{4,8}$/.test(parentPin)) {
+      throw new Error('El PIN de adultos debe tener de 4 a 8 dígitos');
+    }
+  }
 
   if (
     !Number.isInteger(candidate.volumeCap) ||
@@ -273,6 +284,7 @@ function parseRemoteState(raw: unknown): ParsedRemoteState {
     allowedApps,
     revision,
     features,
+    parentPin,
   };
 }
 

@@ -237,6 +237,7 @@ export interface RemoteState {
   allowedOrigins: string[];
   revision: string | null;
   features: Record<string, JsonValue> | null;
+  parentPin: string | null;
 }
 
 export function getSyncInfo(): SyncInfo {
@@ -258,10 +259,14 @@ export function setSyncEndpoint(endpoint: string | null): SyncInfo {
 
 /**
  * Replace every parent-managed value with the state returned by the sync
- * endpoint. The parent PIN and internal migration markers are never touched.
+ * endpoint. The PIN changes only when the endpoint sends one, so older
+ * backends keep the locally configured PIN. Internal migration markers are
+ * never touched.
  */
 export function applyRemoteState(state: RemoteState): SyncResult {
   const target = getStore();
+  const parentPin =
+    state.parentPin === null ? null : createPinRecord(state.parentPin);
 
   target.store = {
     ...target.store,
@@ -273,12 +278,14 @@ export function applyRemoteState(state: RemoteState): SyncResult {
     lastSyncedAt: Date.now(),
     syncRevision: state.revision,
     remoteFeatures: state.features,
+    ...(parentPin === null ? {} : { parentPin }),
   };
 
   return {
     info: getSyncInfo(),
     config: getPublicConfig(),
     apps: getEditableApps(),
+    pinUpdated: parentPin !== null,
   };
 }
 
@@ -286,15 +293,19 @@ export function hasParentPin(): boolean {
   return getStore().get('parentPin') !== null;
 }
 
+function createPinRecord(pin: string) {
+  const salt = randomBytes(16).toString('hex');
+  const hash = scryptSync(pin, salt, 64).toString('hex');
+
+  return { salt, hash };
+}
+
 export function setParentPin(pin: string): void {
   if (!/^\d{4,8}$/.test(pin)) {
     throw new Error('El PIN debe tener de 4 a 8 dígitos');
   }
 
-  const salt = randomBytes(16).toString('hex');
-  const hash = scryptSync(pin, salt, 64).toString('hex');
-
-  getStore().set('parentPin', { salt, hash });
+  getStore().set('parentPin', createPinRecord(pin));
 }
 
 export function verifyParentPin(pin: string): boolean {

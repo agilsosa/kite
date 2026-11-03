@@ -2,6 +2,7 @@
   "schemaVersion": 1,
   "revision": "2026-11-01T12:00:00Z",
   "childName": "Lucía",
+  "parentPin": "4821",
   "volumeCap": 45,
   "allowedOrigins": ["https://pbskids.org", "https://www.starfall.com"],
   "allowedApps": [

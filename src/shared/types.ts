@@ -23,6 +23,7 @@ export interface RemoteConfigPayload {
   allowedOrigins: string[];
   allowedApps: RemoteApp[];
   features?: Record<string, JsonValue>;
+  parentPin?: string;
 }
 
 export interface RemoteApp {
@@ -127,6 +128,7 @@ export interface SyncResult {
   info: SyncInfo;
   config: PublicConfig;
   apps: AllowedApp[];
+  pinUpdated: boolean;
 }
 
 export type PowerAction = 'restart' | 'shutdown';
