@@ -1,0 +1,198 @@
+# Remote configuration API
+
+Parents can refresh Kite's child profile from an HTTPS JSON endpoint. The
+endpoint is configured in **Ajustes de adultos → Sincronización** and is only
+available after unlocking the parent PIN.
+
+Kite is a client only. This document defines the response contract; it does not
+describe a server implementation.
+
+## Request
+
+Kite sends a `GET` request when the parent presses **Actualizar desde el
+servidor**.
+
+| Item               | Value                                                                            |
+| ------------------ | -------------------------------------------------------------------------------- |
+| Method             | `GET`                                                                            |
+| `Accept`           | `application/json`                                                               |
+| Timeout            | 10 seconds                                                                       |
+| Maximum response   | 256 KiB                                                                          |
+| Authentication     | None in this version                                                             |
+| Cache              | `no-store`                                                                       |
+| Redirects          | Followed; the final URL must also be allowed                                     |
+| HTTPS              | Required in packaged builds                                                      |
+| HTTP               | Loopback only in unpackaged development builds (`localhost`, `127.0.0.1`, `::1`) |
+| Credentials in URL | Rejected                                                                         |
+
+The endpoint should return `200 OK` and a UTF-8 JSON object. Any other status is
+reported in the parent UI and leaves the current configuration unchanged.
+
+## Full-state semantics
+
+A successful response **replaces every parent-managed value**:
+
+- `childName`
+- `volumeCap`
+- `allowedOrigins`
+- `allowedApps`
+- `features`
+
+The parent PIN, the sample-app migration marker, and internal application
+state are never changed by the response. If validation fails, nothing is
+applied; the previous configuration stays in place. The endpoint itself is
+stored as soon as it is valid so the parent can retry after a network error.
+
+Because this is a full-state replacement, the server must always send every
+field, including empty lists. It is not a patch or merge API.
+
+## Response shape
+
+```json
+{
+  "schemaVersion": 1,
+  "revision": "2026-11-01T12:00:00Z",
+  "childName": "Lucía",
+  "volumeCap": 45,
+  "allowedOrigins": ["https://pbskids.org", "https://www.starfall.com"],
+  "allowedApps": [
+    {
+      "id": "firefox",
+      "name": "Firefox",
+      "icon": "globe",
+      "path": "C:\\Program Files\\Mozilla Firefox\\firefox.exe",
+      "args": []
+    },
+    {
+      "id": "drawing",
+      "name": "Dibujar",
+      "icon": "palette",
+      "path": "C:\\Program Files\\Drawing\\drawing.exe"
+    }
+  ],
+  "features": {
+    "bedtime": {
+      "enabled": true,
+      "start": "20:30",
+      "end": "07:00"
+    }
+  }
+}
+```
+
+A machine-readable schema is in
+[`remote-config.schema.json`](remote-config.schema.json). A copy of the example
+is in [`remote-config.example.json`](remote-config.example.json).
+
+## Fields
+
+| Field            | Type             | Required | Rules                                                                                                                                                  |
+| ---------------- | ---------------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `schemaVersion`  | integer          | Yes      | Must be `1`. A different value is rejected as incompatible.                                                                                            |
+| `revision`       | string or number | No       | 1–100 characters after trimming. Stored and shown in parent settings. Useful for cache busting and support.                                            |
+| `childName`      | string           | Yes      | 1–40 characters after trimming.                                                                                                                        |
+| `volumeCap`      | integer          | Yes      | `0`–`100`. This is the maximum volume Kite allows and the profile's volume setting. Kite has no separate startup volume.                               |
+| `allowedOrigins` | string[]         | Yes      | At most 50. Each value must be an `https://` URL; Kite stores only its origin, for example `https://example.com`. Duplicates are removed.              |
+| `allowedApps`    | object[]         | Yes      | At most 30. See the app fields below.                                                                                                                  |
+| `features`       | object           | No       | Reserved for future server-driven features. Stored unchanged by this version. Maximum 64 KiB, nesting depth 4, 50 keys per object, 50 items per array. |
+
+Unknown **top-level** fields are ignored, so a newer server can add metadata
+without breaking older clients. Add actual settings that Kite should act on
+under `features`; this version stores that object but does not interpret it.
+
+### App fields
+
+| Field  | Type     | Required | Rules                                                                                                             |
+| ------ | -------- | -------- | ----------------------------------------------------------------------------------------------------------------- |
+| `id`   | string   | No       | 1–64 characters from `A–Z`, `a–z`, `0–9`, `_`, `-`. Must be unique when provided. If omitted, Kite generates one. |
+| `name` | string   | Yes      | 1–40 characters after trimming.                                                                                   |
+| `icon` | string   | No       | One of the icon keys below. Unknown values fall back to `puzzle`.                                                 |
+| `path` | string   | Yes      | Absolute path to the executable on the target machine, at most 1000 characters.                                   |
+| `args` | string[] | No       | At most 10 arguments, each at most 200 characters.                                                                |
+
+Valid icon keys:
+
+```text
+puzzle, gamepad, book, palette, music, film, camera, flask, globe, rocket,
+cat, bot, trophy, wrench, star, shapes, sparkles, compass, folder
+```
+
+`path` is machine-specific. The API must return paths that exist on the target
+kiosk (or return different profiles per device/site from the server side).
+
+## Future features
+
+`features` is the extension point. It is an arbitrary JSON object with the size
+and nesting limits above, and Kite currently persists it without acting on it.
+A future Kite version can start reading a namespaced key, for example:
+
+```json
+{
+  "features": {
+    "schedule": {
+      "weekdayStart": "08:00",
+      "weekdayEnd": "20:00"
+    },
+    "allowedContacts": []
+  }
+}
+```
+
+Keep feature names namespaced and treat missing keys as disabled/empty so older
+clients remain compatible. Do not use `features` for values that this version
+already validates, such as `childName` or `volumeCap`.
+
+## Validation and errors
+
+All validation happens before anything is written. The parent sees a Spanish
+error for the first problem found, for example:
+
+- `La dirección de la API debe usar HTTPS`
+- `La API respondió con HTTP 404`
+- `La API no devolvió JSON válido`
+- `La versión del formato de sincronización no es compatible. Se esperaba schemaVersion 1.`
+- `El sitio web en la posición 2 no es válido: Los sitios web deben usar HTTPS`
+- `La aplicación "Firefox" usa un id repetido (firefox)`
+
+Limits are enforced, not truncated: sending 31 apps or 51 websites is an error
+rather than silently dropping the extras.
+
+## Trust model
+
+The endpoint is configured by a parent, so Kite treats its response as trusted
+configuration. It can add websites and native executables to the child's
+allow-list. Protect the endpoint and the server that serves it:
+
+- Use HTTPS with a valid certificate.
+- Do not let the response be editable by the child or an untrusted party.
+- Use a stable, versioned URL and return only JSON.
+- Kite does not sign or verify the response, and it does not authenticate to
+  the endpoint in this version.
+
+## Testing
+
+The endpoint must be reachable from the kiosk machine, not just from a browser
+on another computer.
+
+From the parent settings, open **Sincronización**, enter the URL, and press
+**Actualizar desde el servidor**. A successful sync shows the server revision
+and the sync time, and updates the other settings tabs.
+
+For development, a local server may use HTTP on loopback when Kite is running
+unpackaged:
+
+```bash
+python3 -m http.server 8000 --directory /tmp/kite-config
+```
+
+Then use `http://localhost:8000/config.json` as the endpoint. A packaged build
+requires HTTPS.
+
+A quick contract check:
+
+```bash
+curl -fsS https://example.com/kite.json | jq .
+```
+
+Confirm that every app path and icon is valid for the target platform before
+pointing a production kiosk at the endpoint.

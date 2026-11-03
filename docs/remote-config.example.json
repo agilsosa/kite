@@ -1,0 +1,29 @@
+{
+  "schemaVersion": 1,
+  "revision": "2026-11-01T12:00:00Z",
+  "childName": "Lucía",
+  "volumeCap": 45,
+  "allowedOrigins": ["https://pbskids.org", "https://www.starfall.com"],
+  "allowedApps": [
+    {
+      "id": "firefox",
+      "name": "Firefox",
+      "icon": "globe",
+      "path": "C:\\Program Files\\Mozilla Firefox\\firefox.exe",
+      "args": []
+    },
+    {
+      "id": "drawing",
+      "name": "Dibujar",
+      "icon": "palette",
+      "path": "C:\\Program Files\\Drawing\\drawing.exe"
+    }
+  ],
+  "features": {
+    "bedtime": {
+      "enabled": true,
+      "start": "20:30",
+      "end": "07:00"
+    }
+  }
+}

@@ -1,0 +1,55 @@
+name: Release Windows
+
+# Building Squirrel.Windows on Linux is not reliable, so releases are built on
+# a Windows runner. Pushing a version tag (for example `v1.0.1`) publishes a
+# public GitHub Release, which update.electronjs.org then serves to installed
+# copies of Kite.
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: windows-latest
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Check types
+        run: npm run typecheck
+
+      - name: Lint and format check
+        run: npm run lint
+
+      - name: Verify the tag matches the package version
+        if: startsWith(github.ref, 'refs/tags/v')
+        shell: pwsh
+        run: |
+          $version = (Get-Content package.json -Raw | ConvertFrom-Json).version
+          $tag = "${{ github.ref_name }}"
+          if ($tag -ne "v$version") {
+            throw "Tag $tag does not match package.json version v$version. Bump the version before tagging."
+          }
+
+      - name: Build and publish the GitHub Release
+        run: npm run release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

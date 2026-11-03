@@ -1,0 +1,65 @@
+@import 'tailwindcss';
+
+@theme {
+  --font-sans:
+    ui-rounded, 'Avenir Next Rounded', 'Nunito', 'Segoe UI', system-ui,
+    sans-serif;
+  --color-paper: #f7f2e7;
+  --color-ink: #173f35;
+  --color-ink-soft: #46685d;
+  --color-marigold: #f4b942;
+  --color-marigold-deep: #d99a1f;
+  --color-coral: #e4572e;
+  --color-sky: #8ecae6;
+  --color-leaf: #6a994e;
+  --color-berry: #b56576;
+  --shadow-kite: 6px 6px 0 0 #173f35;
+  --shadow-kite-sm: 4px 4px 0 0 #173f35;
+}
+
+@layer base {
+  :root {
+    color-scheme: light;
+  }
+
+  html {
+    background: var(--color-paper);
+  }
+
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+
+  body {
+    @apply overflow-hidden bg-paper font-sans text-ink antialiased;
+    background-image: radial-gradient(
+      circle,
+      rgb(23 63 53 / 12%) 1.5px,
+      transparent 1.5px
+    );
+    background-size: 26px 26px;
+  }
+
+  *:focus-visible {
+    outline: 3px solid var(--color-coral);
+    outline-offset: 3px;
+  }
+
+  ::selection {
+    background: var(--color-marigold);
+    color: var(--color-ink);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+  }
+}

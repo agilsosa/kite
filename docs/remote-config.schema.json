@@ -1,0 +1,124 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/agilsosa/kite/docs/remote-config.schema.json",
+  "title": "Kite remote configuration",
+  "description": "Full child-profile state returned by the endpoint configured in Ajustes de adultos > Sincronización.",
+  "type": "object",
+  "required": [
+    "schemaVersion",
+    "childName",
+    "volumeCap",
+    "allowedOrigins",
+    "allowedApps"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "type": "integer",
+      "const": 1,
+      "description": "Payload format version. Kite currently accepts only 1."
+    },
+    "revision": {
+      "description": "Optional identifier for the server-side revision of this state.",
+      "oneOf": [
+        {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100
+        },
+        {
+          "type": "number"
+        }
+      ]
+    },
+    "childName": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 40
+    },
+    "volumeCap": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 100
+    },
+    "allowedOrigins": {
+      "type": "array",
+      "maxItems": 50,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^https://",
+        "maxLength": 300
+      }
+    },
+    "allowedApps": {
+      "type": "array",
+      "maxItems": 30,
+      "items": {
+        "$ref": "#/$defs/app"
+      }
+    },
+    "features": {
+      "type": "object",
+      "maxProperties": 50,
+      "description": "Reserved for future features. Kite stores it but does not act on it yet.",
+      "additionalProperties": true
+    }
+  },
+  "additionalProperties": true,
+  "$defs": {
+    "app": {
+      "type": "object",
+      "required": ["name", "path"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_-]{1,64}$"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 40
+        },
+        "icon": {
+          "type": "string",
+          "enum": [
+            "puzzle",
+            "gamepad",
+            "book",
+            "palette",
+            "music",
+            "film",
+            "camera",
+            "flask",
+            "globe",
+            "rocket",
+            "cat",
+            "bot",
+            "trophy",
+            "wrench",
+            "star",
+            "shapes",
+            "sparkles",
+            "compass",
+            "folder"
+          ]
+        },
+        "path": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1000,
+          "pattern": "^(?:[A-Za-z]:[\\\\/]|/)"
+        },
+        "args": {
+          "type": "array",
+          "maxItems": 10,
+          "items": {
+            "type": "string",
+            "maxLength": 200
+          }
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}
