@@ -1,7 +1,7 @@
 {
   "name": "kite",
   "productName": "kite",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "private": true,
   "description": "Lanzador infantil bloqueado en modo kiosco para aplicaciones, sitios web, Wi-Fi y volumen.",
   "keywords": [],

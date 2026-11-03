@@ -9,6 +9,7 @@ import {
   revealSwayWindow,
   snapshotSwayWindows,
 } from './sway';
+import { focusWindowsApp } from './windowActivation';
 
 const runningApps = new Map<string, Set<ChildProcess>>();
 /** Window ids reported by Sway, so an app can be raised instead of relaunched. */
@@ -138,6 +139,15 @@ export async function launchAllowedApp(appId: string): Promise<void> {
       if (await focusSwayWindow(windowId)) {
         return;
       }
+    }
+
+    /*
+     * Windows has no Electron API for focusing another process's window. Raise
+     * the existing window instead of launching a second copy.
+     */
+    if (process.platform === 'win32') {
+      await focusWindowsApp(appEntry.path);
+      return;
     }
   }
 

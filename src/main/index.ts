@@ -30,7 +30,13 @@ function createMainWindow(): BrowserWindow {
     show: false,
     frame: false,
     skipTaskbar: true,
-    closable: false,
+    /*
+     * Keep the window OS-closable. On Windows, `app.quit()` and
+     * `autoUpdater.quitAndInstall()` cannot close a window created with
+     * `closable: false`. The `close` handler below still blocks user-initiated
+     * closes unless a parent approved the shutdown.
+     */
+    closable: true,
     minimizable: false,
     maximizable: false,
     fullscreenable: false,
@@ -106,7 +112,13 @@ function createMainWindow(): BrowserWindow {
 
 function requestQuit() {
   isAuthorizedShutdown = true;
-  app.quit();
+  stopUpdater();
+  stopSwayLayout();
+  uninstallGlobalShortcuts();
+  // `app.quit()` can be blocked by the kiosk window or by a child page's
+  // `beforeunload` handler. A parent already approved this shutdown, so exit
+  // directly instead of waiting for every window to close.
+  app.exit(0);
 }
 
 function configureAutoLaunch(): void {

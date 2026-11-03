@@ -12,6 +12,11 @@ import { GITHUB_REPOSITORY } from './src/shared/release';
 const config: ForgeConfig = {
   packagerConfig: {
     asar: true,
+    // easy-volume's Windows helper has to run as a child process, and files
+    // inside an asar archive cannot be executed.
+    extraResource: [
+      'node_modules/easy-volume/dist/platforms/windows/volume.exe',
+    ],
   },
   rebuildConfig: {},
   makers: [

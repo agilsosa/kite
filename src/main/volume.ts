@@ -1,5 +1,31 @@
-import { getMute, getVolume, setMute, setVolume } from 'easy-volume';
+import {
+  getMute as getSystemMute,
+  getVolume as getSystemVolume,
+  setMute as setSystemMute,
+  setVolume as setSystemVolume,
+} from 'easy-volume';
 import type { VolumeState } from '../shared/types';
+import {
+  getWindowsMute,
+  getWindowsVolume,
+  setWindowsMute,
+  setWindowsVolume,
+} from './windowsVolume';
+
+const systemVolume =
+  process.platform === 'win32'
+    ? {
+        getVolume: getWindowsVolume,
+        setVolume: setWindowsVolume,
+        getMute: getWindowsMute,
+        setMute: setWindowsMute,
+      }
+    : {
+        getVolume: getSystemVolume,
+        setVolume: setSystemVolume,
+        getMute: getSystemMute,
+        setMute: setSystemMute,
+      };
 
 let lastKnownLevel = 50;
 
@@ -11,11 +37,14 @@ export async function getVolumeState(cap: number): Promise<VolumeState> {
   const safeCap = Math.max(0, Math.min(100, Math.round(cap)));
 
   try {
-    const [level, muted] = await Promise.all([getVolume(), getMute()]);
+    const [level, muted] = await Promise.all([
+      systemVolume.getVolume(),
+      systemVolume.getMute(),
+    ]);
     lastKnownLevel = clampLevel(level, safeCap);
 
     if (level > safeCap) {
-      await setVolume(safeCap).catch(() => {
+      await systemVolume.setVolume(safeCap).catch(() => {
         // Report the capped level even if the system call is unavailable.
       });
     }
@@ -39,7 +68,7 @@ export async function setVolumeLevel(
   lastKnownLevel = nextLevel;
 
   try {
-    await setVolume(nextLevel);
+    await systemVolume.setVolume(nextLevel);
   } catch {
     throw new Error('No se pudo cambiar el volumen del sistema');
   }
@@ -52,7 +81,7 @@ export async function setVolumeMuted(
   cap: number,
 ): Promise<VolumeState> {
   try {
-    await setMute(Boolean(muted));
+    await systemVolume.setMute(Boolean(muted));
   } catch {
     throw new Error('No se pudo cambiar el silencio del sistema');
   }
