@@ -23,6 +23,7 @@ export function PowerMenu({ onSelect }: PowerMenuProps) {
       <Menu.Portal>
         <Menu.Positioner
           align="end"
+          alignOffset={20}
           className="z-50"
           side="top"
           sideOffset={10}

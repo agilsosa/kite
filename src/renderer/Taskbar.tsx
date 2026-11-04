@@ -7,7 +7,7 @@ import { Button } from './components/Button';
 import { Modal } from './components/Modal';
 import { PowerMenu } from './components/PowerMenu';
 import { useAppVersion } from './hooks/useAppVersion';
-import { useTriplePress } from './hooks/useTriplePress';
+import { useMultiPress } from './hooks/useMultiPress';
 import { errorMessage } from './lib/format';
 
 const REFRESH_MS = 500;
@@ -33,7 +33,7 @@ export function Taskbar({ onRequestParent }: { onRequestParent: () => void }) {
   const [powerAction, setPowerAction] = useState<PowerAction | null>(null);
   const [powerError, setPowerError] = useState<string | null>(null);
   const version = useAppVersion();
-  const versionPress = useTriplePress(onRequestParent);
+  const versionPress = useMultiPress(onRequestParent, 2);
 
   const requestPower = useCallback((action: PowerAction) => {
     setPowerError(null);
@@ -86,7 +86,7 @@ export function Taskbar({ onRequestParent }: { onRequestParent: () => void }) {
   return (
     <nav
       aria-label="Barra de tareas"
-      className="flex h-13 w-full shrink-0 items-stretch gap-1.5 overflow-hidden bg-sky px-1.5 py-1 text-ink"
+      className="flex h-13 w-full shrink-0 items-stretch gap-1.5 overflow-hidden border-t border-ink/10 bg-sky-soft px-1.5 py-1 text-ink"
     >
       <BaseButton
         aria-label="Ir al inicio de Kite"
@@ -140,7 +140,7 @@ export function Taskbar({ onRequestParent }: { onRequestParent: () => void }) {
         aria-label={
           version ? `Versión de Kite ${version}` : 'Versión de Kite desconocida'
         }
-        className="flex h-full shrink-0 cursor-default items-center rounded-lg px-2 text-xs font-black text-ink transition select-none hover:bg-white/60"
+        className="flex h-full shrink-0 cursor-default items-center rounded-lg px-2 text-xs font-black text-ink select-none"
         title={version ? `kite v${version}` : 'kite'}
         type="button"
       >
