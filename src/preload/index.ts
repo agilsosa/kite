@@ -47,6 +47,7 @@ const api: KiteApi = {
     status: () => ipcRenderer.invoke(IPC.updateStatus),
     check: () => ipcRenderer.invoke(IPC.updateCheck),
     install: () => ipcRenderer.invoke(IPC.updateInstall),
+    openRelease: () => ipcRenderer.invoke(IPC.updateOpenRelease),
   },
   sync: {
     status: () => ipcRenderer.invoke(IPC.syncStatus),

@@ -1,9 +1,13 @@
-name: Release Windows
+name: Release
 
-# Building Squirrel.Windows on Linux is not reliable, so releases are built on
-# a Windows runner. Pushing a version tag (for example `v1.0.1`) publishes a
-# public GitHub Release, which update.electronjs.org then serves to installed
-# copies of Kite.
+# Windows installers are built on a Windows runner because Squirrel.Windows is
+# not reliable on other platforms. Linux packages are built on Ubuntu, where
+# `dpkg-deb` and `rpmbuild` are available. The Linux job runs after the Windows
+# job so the GitHub Release already exists when it uploads its assets.
+#
+# Pushing a version tag (for example `v1.0.1`) publishes a public GitHub
+# Release, which update.electronjs.org then serves to installed Windows copies
+# of Kite. Linux packages are downloaded and installed manually.
 on:
   push:
     tags:
@@ -18,7 +22,7 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  release:
+  windows:
     runs-on: windows-latest
     steps:
       - name: Check out the repository
@@ -51,5 +55,49 @@ jobs:
 
       - name: Build and publish the GitHub Release
         run: npm run release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  linux:
+    needs: windows
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v5
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install RPM packaging tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y rpm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Check types
+        run: npm run typecheck
+
+      - name: Lint and format check
+        run: npm run lint
+
+      - name: Verify the tag matches the package version
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          version="$(node -p "require('./package.json').version")"
+          if [ "${{ github.ref_name }}" != "v$version" ]; then
+            echo "::error::Tag ${{ github.ref_name }} does not match package.json version v$version. Bump the version before tagging."
+            exit 1
+          fi
+
+      - name: Build the Debian and RPM packages
+        run: npm run make:linux
+
+      - name: Upload the Linux packages to the release
+        run: npx electron-forge release --from-make
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

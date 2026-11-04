@@ -105,6 +105,7 @@ export type UpdatePhase =
   | 'disabled'
   | 'idle'
   | 'checking'
+  | 'available'
   | 'downloading'
   | 'downloaded'
   | 'up-to-date'
@@ -114,6 +115,11 @@ export interface UpdateState {
   phase: UpdatePhase;
   currentVersion: string;
   availableVersion: string | null;
+  /**
+   * Release page for a Linux check-only update. Null on Windows and when no
+   * newer release is available.
+   */
+  releaseUrl: string | null;
   checkedAt: number | null;
   error: string | null;
 }
@@ -219,6 +225,7 @@ export interface KiteApi {
     status: () => Promise<UpdateState>;
     check: () => Promise<UpdateState>;
     install: () => Promise<void>;
+    openRelease: () => Promise<void>;
   };
   sync: {
     status: () => Promise<SyncInfo>;

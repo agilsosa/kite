@@ -17,7 +17,9 @@
     "clean": "node -e \"require('node:fs').rmSync('.vite', { recursive: true, force: true })\"",
     "package": "npm run clean && electron-forge package",
     "make": "npm run clean && electron-forge make",
+    "make:linux": "npm run clean && electron-forge make --platform linux --targets deb,rpm",
     "release": "npm run clean && electron-forge release",
+    "release:linux": "npm run clean && electron-forge make --platform linux --targets deb,rpm && electron-forge release --from-make",
     "lint": "oxlint && oxfmt --check",
     "lint:fix": "oxlint --fix && oxfmt --write",
     "typecheck": "tsc --noEmit"

@@ -10,7 +10,8 @@ Kite is built with Electron, React, TypeScript, Tailwind CSS v4, Base UI, and
 Lucide. All UI copy, accessibility labels, and user-facing errors are in
 Spanish, and every icon is drawn with Lucide rather than an emoji. It runs on
 Windows and macOS, with Linux supported for development and kiosk deployments
-that provide the expected system tools.
+that provide the expected system tools. Each release publishes a Squirrel
+installer for Windows plus `.deb` and `.rpm` packages for Linux.
 
 ## What it does
 
@@ -52,7 +53,9 @@ that provide the expected system tools.
   30-second lockout.
 - On Windows, checks GitHub Releases for updates, downloads them in the
   background, and installs only when a parent approves the restart from adult
-  settings. See [Publishing updates](docs/UPDATES.md).
+  settings. On Linux, checks for newer releases and links to the release page so
+  a parent can install the package manually. See
+  [Publishing updates](docs/UPDATES.md).
 - Lets a parent replace the whole child profile (name, volume cap, apps, and
   websites) with JSON from an HTTPS endpoint. The response may also include an
   optional adult PIN. See
@@ -95,6 +98,10 @@ Build installers with Electron Forge makers:
 ```bash
 npm run make
 ```
+
+On Linux, `npm run make:linux` builds both the `.deb` and `.rpm` packages, and
+`npm run release:linux` also uploads them to the GitHub Release for the current
+version.
 
 Both commands clear `.vite` first. The dev server and the production build share
 that output folder, so a stale development bundle could otherwise end up in the
@@ -192,6 +199,10 @@ machine. A complete deployment also locks the operating system to Kite.
   permissions.
 - `easy-volume` uses `amixer` on Linux. Without it, the volume popover reports
   that the system volume cannot be changed.
+- Linux packages install to `/usr/lib/kite` and add a `kite` entry to the
+  application menu. Kite checks GitHub for a newer release and links to its
+  page, but it does not install updates itself: install the `.deb` or `.rpm`
+  from that release to update.
 - Some sites refuse to render inside a frame or require permissions Kite
   denies. Add only sites that work without camera, microphone, location, or
   notifications.

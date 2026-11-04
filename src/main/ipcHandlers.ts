@@ -29,7 +29,12 @@ import {
 import { getVolumeState, setVolumeLevel, setVolumeMuted } from './volume';
 import { runPowerAction } from './power';
 import { activateTaskbarItem, getTaskbarItems } from './taskbar';
-import { checkForUpdates, getUpdateState, installUpdate } from './updater';
+import {
+  checkForUpdates,
+  getUpdateState,
+  installUpdate,
+  openReleasePage,
+} from './updater';
 import { syncFromEndpoint } from './remoteConfig';
 import { IPC } from '../shared/ipc';
 import type { KeyboardInput } from '../shared/types';
@@ -324,6 +329,12 @@ export function registerIpcHandlers(context: IpcContext) {
     assertMainWindowSender(event);
     requireParent();
     installUpdate();
+  });
+
+  ipcMain.handle(IPC.updateOpenRelease, async (event) => {
+    assertMainWindowSender(event);
+    requireParent();
+    await openReleasePage();
   });
 
   ipcMain.handle(IPC.syncStatus, (event) => {

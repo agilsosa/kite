@@ -8,11 +8,15 @@ const POLL_INTERVAL_MS = 2000;
 function statusText(state: UpdateState): string {
   switch (state.phase) {
     case 'disabled':
-      return 'Las actualizaciones automáticas solo están disponibles en la versión instalada para Windows.';
+      return 'La comprobación de actualizaciones no está disponible en esta versión de Kite.';
     case 'idle':
       return 'Kite buscará actualizaciones automáticamente.';
     case 'checking':
       return 'Buscando actualizaciones…';
+    case 'available':
+      return state.availableVersion
+        ? `Hay una actualización disponible (v${state.availableVersion}). Descárgala desde la página de la versión e instálala manualmente.`
+        : 'Hay una actualización disponible. Descárgala desde la página de la versión e instálala manualmente.';
     case 'downloading':
       return 'Hay una actualización disponible. Descargando en segundo plano…';
     case 'downloaded':
@@ -80,6 +84,16 @@ export function UpdatesSettings() {
     }
   };
 
+  const openRelease = async () => {
+    setError(null);
+
+    try {
+      await window.api.update.openRelease();
+    } catch (cause) {
+      setError(errorMessage(cause));
+    }
+  };
+
   const busy =
     state?.phase === 'checking' || state?.phase === 'downloading' || checking;
   const supported = state !== null && state.phase !== 'disabled';
@@ -88,9 +102,11 @@ export function UpdatesSettings() {
     <section className="rounded-2xl border-2 border-ink/15 bg-white/40 p-4">
       <h3 className="text-lg font-black">Actualizaciones</h3>
       <p className="mt-1 max-w-xl text-sm font-semibold text-ink-soft">
-        Kite descarga las actualizaciones en segundo plano y solo las instala
-        cuando tú lo autorizas. Las aplicaciones abiertas desde Kite se cerrarán
-        durante la instalación.
+        En Windows, Kite descarga las actualizaciones en segundo plano y solo
+        las instala cuando tú lo autorizas; las aplicaciones abiertas desde Kite
+        se cerrarán durante la instalación. En Linux, Kite comprueba si hay una
+        versión nueva y te enlaza a la página de la versión para instalarla
+        manualmente.
       </p>
 
       <dl className="mt-4 grid gap-2 text-sm font-semibold sm:grid-cols-2">
@@ -117,6 +133,13 @@ export function UpdatesSettings() {
           : 'Cargando el estado de las actualizaciones…'}
       </p>
 
+      {state?.releaseUrl ? (
+        <p className="mt-2 break-all text-sm font-semibold text-ink-soft">
+          Página de la versión:{' '}
+          <span className="font-mono">{state.releaseUrl}</span>
+        </p>
+      ) : null}
+
       {state?.error ? (
         <p className="mt-2 text-sm font-semibold text-coral" role="alert">
           {state.error}
@@ -131,6 +154,12 @@ export function UpdatesSettings() {
         >
           {busy ? 'Comprobando…' : 'Buscar actualizaciones'}
         </Button>
+
+        {state?.phase === 'available' ? (
+          <Button onClick={() => void openRelease()}>
+            Abrir página de la versión
+          </Button>
+        ) : null}
 
         {state?.phase === 'downloaded' && !confirmingInstall ? (
           <Button onClick={() => setConfirmingInstall(true)}>

@@ -25,8 +25,14 @@ Outputs:
 
 - `out/make/squirrel.windows/x64/` — Windows Squirrel installer
 - `out/make/zip/darwin/` — macOS `.zip`
-- `out/make/deb/` and `out/make/rpm/` — Linux packages
+- `out/make/deb/x64/` and `out/make/rpm/x64/` — Linux `.deb` and `.rpm`
 - `out/kite-linux-x64/` — unpacked Linux app from `npm run package`
+
+On Linux, `npm run make:linux` builds the `.deb` and `.rpm` directly. Every
+GitHub Release includes both packages; Windows releases are produced by the
+`windows` job and Linux packages by the `linux` job. Use `npm run release:linux`
+to build and upload them manually. Linux updates are manual: install the
+package from a newer release.
 
 Sign and notarize production builds using your normal Electron code-signing
 setup. Unsigned builds will trigger Gatekeeper or SmartScreen warnings and may
@@ -111,7 +117,10 @@ Notes:
 
 Kite is developed and packaged on Linux, but Linux deployments vary widely.
 
-1. Install the `.deb`/`.rpm`, or unpack the packaged app.
+1. Install the `.deb`/`.rpm` from the latest GitHub Release, or unpack the
+   packaged app. Adult settings can check GitHub for a newer release and open
+   its page, but updates are manual: download and install the package from that
+   release.
 2. Create a dedicated non-admin kiosk user with an automatic graphical login.
 3. Start only Kite, using one of:
    - A minimal compositor/window manager such as `cage`, which maps only the

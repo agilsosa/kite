@@ -25,6 +25,7 @@ export const IPC = {
   updateStatus: 'update:status',
   updateCheck: 'update:check',
   updateInstall: 'update:install',
+  updateOpenRelease: 'update:open-release',
   syncStatus: 'sync:status',
   syncApply: 'sync:apply',
   systemVersion: 'system:version',

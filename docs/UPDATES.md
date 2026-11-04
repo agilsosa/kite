@@ -6,13 +6,13 @@ Releases live in a **public** GitHub repository and are served by
 The app never installs an update on its own: it downloads in the background and
 waits for a parent to approve the restart.
 
-| Item       | Value                                                                        |
-| ---------- | ---------------------------------------------------------------------------- |
-| Repository | `agilsosa/kite` (must be public)                                             |
-| Feed       | `https://update.electronjs.org/agilsosa/kite/win32-<arch>/<current version>` |
-| Updater    | Electron `autoUpdater` (Squirrel.Windows)                                    |
-| Publisher  | `@electron-forge/publisher-github`                                           |
-| Platforms  | Windows packaged builds only (CI builds x64)                                 |
+| Item       | Value                                                                                      |
+| ---------- | ------------------------------------------------------------------------------------------ |
+| Repository | `agilsosa/kite` (must be public)                                                           |
+| Feed       | `https://update.electronjs.org/agilsosa/kite/win32-<arch>/<current version>`               |
+| Updater    | Electron `autoUpdater` (Squirrel.Windows); GitHub Releases check on Linux                  |
+| Publisher  | `@electron-forge/publisher-github`                                                         |
+| Platforms  | Windows packaged builds (automatic updates); Linux `.deb`/`.rpm` packages (manual updates) |
 
 The repository owner and name live in `src/shared/release.ts`. `package.json`
 carries the matching `repository` URL. Change both if the project moves.
@@ -49,9 +49,12 @@ carries the matching `repository` URL. Change both if the project moves.
   shutdown and calls `quitAndInstall()`.
 - A downloaded update also applies the next time Kite starts normally, even if
   nobody pressed the button. It is never applied while the app is running.
-- Development builds, Linux, and macOS show the feature as unavailable. macOS
-  in-app updates would additionally require Developer ID signing and
-  notarization.
+- On a packaged Linux build, Kite asks the GitHub Releases API for the latest
+  published release every six hours. When a newer version exists, adult settings
+  show it and offer **Abrir página de la versión**. Kite never downloads or
+  installs the package: installation stays manual.
+- Development builds and macOS show the feature as unavailable. macOS in-app
+  updates would additionally require Developer ID signing and notarization.
 
 The first build that contains this updater has to be installed manually.
 Builds published before the updater existed cannot update themselves.
@@ -89,19 +92,26 @@ Run these steps from a clean `main` branch.
    git push origin v1.0.1
    ```
 
-5. Watch **Actions → Release Windows**. The workflow:
-   - installs dependencies with `npm ci`,
-   - runs `npm run typecheck` and `npm run lint`,
-   - verifies that the tag matches `package.json`,
-   - runs `npm run release`, which packages, makes the Squirrel installer, and
-     publishes a **non-draft, non-prerelease** GitHub Release.
+5. Watch **Actions → Release**. The workflow has two jobs:
+   - `windows` installs dependencies with `npm ci`, runs `npm run typecheck` and
+     `npm run lint`, verifies that the tag matches `package.json`, and runs
+     `npm run release`. That packages, makes the Squirrel installer, creates a
+     **non-draft, non-prerelease** GitHub Release, and uploads the Windows
+     assets.
+   - `linux` runs after `windows` and builds the Debian and RPM packages with
+     `npm run make:linux`, then uploads them to the same release with
+     `electron-forge release --from-make`.
 
-6. Open the new release and confirm it contains all three assets:
+6. Open the new release and confirm it contains all assets:
    - `RELEASES`
    - `kite-<version>-full.nupkg` (plus a `-delta.nupkg` after the first release)
    - `kite-<version> Setup.exe`
+   - `kite_<version>_amd64.deb`
+   - `kite-<version>-1.x86_64.rpm`
 
-   `update.electronjs.org` needs `RELEASES` and the `.nupkg`. Keep both public.
+   `update.electronjs.org` needs `RELEASES` and the `.nupkg`. Keep them public.
+   The Linux packages are optional for Windows users and ignored by the
+   Windows update feed.
 
 7. Verify the feed for the version you are updating **from**, for example:
 
@@ -116,6 +126,33 @@ Run these steps from a clean `main` branch.
    press **Buscar actualizaciones**. The state should move through
    "Buscando…", "Descargando…", and "Actualización descargada". Press
    **Reiniciar e instalar** and confirm that the version in the taskbar changes.
+
+### Linux packages
+
+The `linux` job builds two packages on `ubuntu-latest` and attaches them to the
+same GitHub Release:
+
+- `kite_<version>_amd64.deb` for Debian, Ubuntu, and derivatives.
+- `kite-<version>-1.x86_64.rpm` for Fedora, RHEL, and derivatives. The `%{?dist}`
+  suffix is only added when the build host defines it.
+
+The job installs `rpm` first because the RPM maker needs `rpmbuild`. The Debian
+maker uses `dpkg-deb --root-owner-group`, so `fakeroot` is not required.
+
+Linux has no automatic installer: `src/main/updater.ts` only enables the
+check-only path outside Windows. To update a Linux install, download the newer
+package from the release page and install it again:
+
+```bash
+sudo apt install ./kite_<version>_amd64.deb
+sudo dnf install ./kite-<version>-1.x86_64.rpm
+```
+
+The job depends on `windows` so the release already exists when it uploads. If
+the Linux job fails after the Windows job created the release, re-run only the
+failed `linux` job. The GitHub publisher **skips assets that already exist**, so
+delete a stale `.deb`/`.rpm` from the release before retrying the same version,
+or publish a higher version.
 
 ### Version rules
 
@@ -151,6 +188,31 @@ Read and write** on `agilsosa/kite`. Do not commit the token or put it in
 current platform, and uploads the results. On Windows the Squirrel artifacts are
 under `out/make/squirrel.windows/x64/`.
 
+## Publish manually on Linux
+
+Use this to test the Linux packaging path, or as a fallback when Actions is
+unavailable. It needs `dpkg-deb` and `rpmbuild` (the `rpm` package on
+Debian/Ubuntu). Run it after the Windows release exists; otherwise Forge creates
+the release itself from the current `package.json` version.
+
+```bash
+export GITHUB_TOKEN="<token with Contents: read and write>"
+npm ci
+npm run typecheck
+npm run lint
+npm run release:linux
+```
+
+`npm run release:linux` clears `.vite`, packages the app, builds the `.deb` and
+`.rpm`, and uploads them to the GitHub Release for the current version. To build
+the packages without uploading, run `npm run make:linux`. Artifacts land in
+`out/make/deb/x64/` and `out/make/rpm/x64/`.
+
+The RPM build uses `build/rpm.spec.ejs` so `%install` works with both rpm 4 and
+rpm 6, and `build/rpm.desktop.ejs` to avoid an upstream duplicate
+`StartupWMClass` line. Keep those templates in sync with the upstream maker if it
+changes.
+
 ## Release checklist
 
 - [ ] The working tree is clean and `main` is up to date.
@@ -159,6 +221,11 @@ under `out/make/squirrel.windows/x64/`.
 - [ ] The tag is `v<package.json version>`.
 - [ ] The GitHub Release is public, not a draft, and not a prerelease.
 - [ ] `RELEASES` and the matching `.nupkg` are attached.
+- [ ] `kite_<version>_amd64.deb` and `kite-<version>-1.x86_64.rpm` are attached.
+- [ ] The Debian package installs on a clean Debian/Ubuntu machine
+      (`sudo apt install ./kite_<version>_amd64.deb`) and Kite starts.
+- [ ] The RPM package installs on a clean Fedora/RHEL machine
+      (`sudo dnf install ./kite-<version>-1.x86_64.rpm`) and Kite starts.
 - [ ] The feed URL for the previous version resolves.
 - [ ] A Windows install of the previous version finds, downloads, and installs
       the update.
@@ -179,3 +246,7 @@ under `out/make/squirrel.windows/x64/`.
 | An update downloads but never installs                         | Parent approval was not given. Open **Ajustes de adultos → Equipo → Actualizaciones**.                                                                              |
 | Auto-launch stops after an update                              | Check the Run entry points at Squirrel's `Update.exe`, not a removed `app-<version>` folder. The code now uses the stub, but verify it on the target Windows image. |
 | SmartScreen warns on install                                   | The build is unsigned. Sign the Squirrel installer and executable for production use.                                                                               |
+| `linux` job fails with `rpmbuild not found`                    | The runner is missing the `rpm` package. The workflow installs it; re-run the job if the install step was skipped.                                                  |
+| Re-running `linux` skips the `.deb`/`.rpm`                     | The publisher does not overwrite existing assets. Delete the stale asset from the release, or publish a higher version.                                             |
+| Linux check fails with "GitHub limitó temporalmente…"          | The unauthenticated GitHub API allows 60 requests per hour per IP. Wait and retry, or check from a different network.                                               |
+| `.deb`/`.rpm` installs but Kite has no menu icon               | The desktop environment caches its menu. Log out and back in, or refresh the icon cache for `/usr/share/pixmaps/kite.png`.                                          |
