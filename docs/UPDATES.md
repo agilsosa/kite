@@ -44,6 +44,9 @@ carries the matching `repository` URL. Change both if the project moves.
 - Squirrel's first launch (`--squirrel-firstrun`) skips the immediate check and
   waits ten minutes, because Squirrel still holds a lock on the app folder.
 - A newer release is downloaded automatically in the background.
+- `update.electronjs.org` caches the latest release for about 15 minutes, so a
+  version that was just published can still be reported as “up to date”. Retry
+  the check after that window; Kite does not need to be restarted.
 - Kite never restarts itself. A parent can open **Ajustes de adultos → Equipo →
   Actualizaciones** and choose **Reiniciar e instalar**, which authorizes
   shutdown and calls `quitAndInstall()`.
@@ -236,17 +239,18 @@ changes.
 
 ## Troubleshooting
 
-| Symptom                                                        | Likely cause                                                                                                                                                        |
-| -------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Release workflow fails with `Please set GITHUB_TOKEN`          | Repository workflow permissions are read-only, or Actions is disabled.                                                                                              |
-| Workflow fails with a tag/version mismatch                     | The tag is not `v` + `package.json` version.                                                                                                                        |
-| Release exists but Kite sees no update                         | Release is a draft/prerelease, `RELEASES` or `.nupkg` is missing, the tag is not SemVer, or the service cache has not refreshed.                                    |
-| `update.electronjs.org` returns `404`                          | Repository is private, the release is not published, or the requested platform/version has no compatible asset.                                                     |
-| Kite always reports "Kite está actualizado" on the old version | The installed build predates the updater, or the release version is not greater than the installed one.                                                             |
-| An update downloads but never installs                         | Parent approval was not given. Open **Ajustes de adultos → Equipo → Actualizaciones**.                                                                              |
-| Auto-launch stops after an update                              | Check the Run entry points at Squirrel's `Update.exe`, not a removed `app-<version>` folder. The code now uses the stub, but verify it on the target Windows image. |
-| SmartScreen warns on install                                   | The build is unsigned. Sign the Squirrel installer and executable for production use.                                                                               |
-| `linux` job fails with `rpmbuild not found`                    | The runner is missing the `rpm` package. The workflow installs it; re-run the job if the install step was skipped.                                                  |
-| Re-running `linux` skips the `.deb`/`.rpm`                     | The publisher does not overwrite existing assets. Delete the stale asset from the release, or publish a higher version.                                             |
-| Linux check fails with "GitHub limitó temporalmente…"          | The unauthenticated GitHub API allows 60 requests per hour per IP. Wait and retry, or check from a different network.                                               |
-| `.deb`/`.rpm` installs but Kite has no menu icon               | The desktop environment caches its menu. Log out and back in, or refresh the icon cache for `/usr/share/pixmaps/kite.png`.                                          |
+| Symptom                                                        | Likely cause                                                                                                                                                              |
+| -------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Release workflow fails with `Please set GITHUB_TOKEN`          | Repository workflow permissions are read-only, or Actions is disabled.                                                                                                    |
+| Workflow fails with a tag/version mismatch                     | The tag is not `v` + `package.json` version.                                                                                                                              |
+| Release exists but Kite sees no update                         | Release is a draft/prerelease, `RELEASES` or `.nupkg` is missing, the tag is not SemVer, or the service cache has not refreshed.                                          |
+| `update.electronjs.org` returns `404`                          | Repository is private, the release is not published, or the requested platform/version has no compatible asset.                                                           |
+| Kite always reports "Kite está actualizado" on the old version | The installed build predates the updater, or the release version is not greater than the installed one.                                                                   |
+| Kite says "actualizado" right after a release                  | `update.electronjs.org` caches the latest release for about 15 minutes. Check the feed URL; it returns `204` until the cache expires and then `200` with the new version. |
+| An update downloads but never installs                         | Parent approval was not given. Open **Ajustes de adultos → Equipo → Actualizaciones**.                                                                                    |
+| Auto-launch stops after an update                              | Check the Run entry points at Squirrel's `Update.exe`, not a removed `app-<version>` folder. The code now uses the stub, but verify it on the target Windows image.       |
+| SmartScreen warns on install                                   | The build is unsigned. Sign the Squirrel installer and executable for production use.                                                                                     |
+| `linux` job fails with `rpmbuild not found`                    | The runner is missing the `rpm` package. The workflow installs it; re-run the job if the install step was skipped.                                                        |
+| Re-running `linux` skips the `.deb`/`.rpm`                     | The publisher does not overwrite existing assets. Delete the stale asset from the release, or publish a higher version.                                                   |
+| Linux check fails with "GitHub limitó temporalmente…"          | The unauthenticated GitHub API allows 60 requests per hour per IP. Wait and retry, or check from a different network.                                                     |
+| `.deb`/`.rpm` installs but Kite has no menu icon               | The desktop environment caches its menu. Log out and back in, or refresh the icon cache for `/usr/share/pixmaps/kite.png`.                                                |
