@@ -1,4 +1,5 @@
 import type {
+  BatteryStatus,
   PublicApp,
   PublicConfig,
   VolumeState,
@@ -21,6 +22,7 @@ export interface HomeNotice {
 }
 
 interface HomeScreenProps {
+  battery: BatteryStatus;
   config: PublicConfig;
   volume: VolumeState;
   volumeError: string | null;
@@ -45,6 +47,7 @@ function EmptyState({ children }: { children: string }) {
 }
 
 export function HomeScreen({
+  battery,
   config,
   volume,
   volumeError,
@@ -62,6 +65,7 @@ export function HomeScreen({
   return (
     <main className="mx-auto flex min-h-full w-full max-w-7xl flex-col gap-10 px-6 py-8 sm:px-10 lg:px-14">
       <TopBar
+        battery={battery}
         childName={config.childName}
         onMute={onMute}
         onRefreshVolume={onRefreshVolume}

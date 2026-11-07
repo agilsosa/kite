@@ -1,5 +1,5 @@
 import { Button as BaseButton } from '@base-ui/react/button';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import type { KeyboardInput } from '../../shared/types';
 import { useVirtualKeyboardActive } from '../hooks/useVirtualKeyboardActive';
@@ -43,9 +43,14 @@ function KeyboardKey({
   );
 }
 
-export function VirtualKeyboard() {
+export function VirtualKeyboard({
+  standalone = false,
+}: {
+  standalone?: boolean;
+}) {
   const active = useVirtualKeyboardActive();
   const [shift, setShift] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!active) {
@@ -53,7 +58,37 @@ export function VirtualKeyboard() {
     }
   }, [active]);
 
-  if (!active) {
+  // Dialogs and scroll areas use this to stay above the keyboard.
+  useEffect(() => {
+    if (!standalone && !active) {
+      return;
+    }
+
+    const element = containerRef.current;
+
+    if (!element) {
+      return;
+    }
+
+    const root = document.documentElement;
+    const apply = () => {
+      root.style.setProperty(
+        '--kite-keyboard-height',
+        `${Math.ceil(element.getBoundingClientRect().height)}px`,
+      );
+    };
+
+    apply();
+    const observer = new ResizeObserver(apply);
+    observer.observe(element);
+
+    return () => {
+      observer.disconnect();
+      root.style.removeProperty('--kite-keyboard-height');
+    };
+  }, [active, standalone]);
+
+  if (!standalone && !active) {
     return null;
   }
 
@@ -77,6 +112,8 @@ export function VirtualKeyboard() {
     <div
       aria-label="Teclado en pantalla"
       className="fixed inset-x-0 bottom-0 z-[100] mx-auto flex w-full max-w-5xl flex-col gap-2 border-4 border-ink bg-paper/95 p-3 shadow-[0_-6px_0_0_#173f35] backdrop-blur-sm"
+      id="kite-keyboard"
+      ref={containerRef}
       role="group"
     >
       <div className="flex items-center justify-between gap-3 px-1">
@@ -84,6 +121,11 @@ export function VirtualKeyboard() {
         <BaseButton
           className="rounded-full border-2 border-ink bg-paper px-3 py-1 text-sm font-extrabold shadow-[2px_2px_0_0_#173f35]"
           onClick={() => {
+            if (standalone) {
+              void window.api.keyboard.hide();
+              return;
+            }
+
             if (document.activeElement instanceof HTMLElement) {
               document.activeElement.blur();
             }

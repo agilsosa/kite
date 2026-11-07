@@ -39,15 +39,19 @@ installer for Windows plus `.deb` and `.rpm` packages for Linux.
   and confines every request. Nothing can be edited, renamed, moved, or deleted
   from Kite. The window appears in the taskbar and closes from its **Inicio**
   button or `Escape`.
-- Includes an on-screen keyboard that types through
-  `webContents.sendInputEvent`, so it works without OS-level input tools. It is
-  currently disabled in `src/renderer/lib/features.ts` while Kite is used with a
-  physical keyboard.
+- Can show an on-screen keyboard for Kite's own text fields and inside allowed
+  websites. A parent enables it in **Ajustes de adultos → Equipo**; in a child
+  window a small keyboard window opens above the page, and both keyboards type
+  through `webContents.sendInputEvent`, so they work without OS-level input
+  tools. It is off by default for devices with a physical keyboard.
 - Scans and joins Wi-Fi networks from a compact popover on the home screen; no
   parent PIN is needed.
 - Controls system volume and mute from a compact popover, enforced against a
   parent-set maximum.
-- Shows a subtle `kite vX.Y.Z` label in the taskbar. Three quick clicks on it
+- Shows the battery percentage and charging state in the home-screen top bar.
+  It reads Linux sysfs (with a UPower fallback) and Windows `Win32_Battery`
+  through PowerShell, and stays hidden on machines without a battery.
+- Shows a subtle `kite vX.Y.Z` label in the taskbar. Two quick clicks on it
   open the PIN gate; the label itself never reveals the gesture.
   PINs are stored as salted scrypt hashes, and five bad attempts trigger a
   30-second lockout.
@@ -150,7 +154,10 @@ Important modules:
 | `src/main/config.ts`                   | Encrypted config, validation, PIN hashing          |
 | `src/main/wifi.ts`                     | `node-wifi` wrapper                                |
 | `src/main/volume.ts`                   | `easy-volume` wrapper with cap enforcement         |
+| `src/main/battery.ts`                  | Battery percentage and charging state per platform |
 | `src/main/keyboard.ts`                 | `sendInputEvent` key injection                     |
+| `src/main/virtualKeyboard.ts`          | On-screen keyboard window for child web pages      |
+| `src/preload/child.ts`                 | Text-field focus reporting inside child windows    |
 
 ## Data and credentials
 

@@ -86,6 +86,11 @@ const config: ForgeConfig = {
           config: 'vite.preload.config.ts',
           target: 'preload',
         },
+        {
+          entry: 'src/preload/child.ts',
+          config: 'vite.preload.child.config.ts',
+          target: 'preload',
+        },
       ],
       renderer: [
         {

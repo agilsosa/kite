@@ -1,5 +1,6 @@
 import { Input } from '@base-ui/react/input';
 import { Slider } from '@base-ui/react/slider';
+import { Switch } from '@base-ui/react/switch';
 import { useState } from 'react';
 import { errorMessage } from '../../lib/format';
 import { Button } from '../Button';
@@ -8,8 +9,10 @@ import { UpdatesSettings } from './UpdatesSettings';
 interface DeviceSettingsProps {
   childName: string;
   volumeCap: number;
+  childKeyboard: boolean;
   onChildNameChange: (name: string) => void;
   onVolumeCapChange: (cap: number) => void;
+  onChildKeyboardChange: (enabled: boolean) => void;
 }
 
 const inputClass =
@@ -18,8 +21,10 @@ const inputClass =
 export function DeviceSettings({
   childName,
   volumeCap,
+  childKeyboard,
   onChildNameChange,
   onVolumeCapChange,
+  onChildKeyboardChange,
 }: DeviceSettingsProps) {
   const [exitError, setExitError] = useState<string | null>(null);
   const [confirmingExit, setConfirmingExit] = useState(false);
@@ -70,6 +75,26 @@ export function DeviceSettings({
           La pantalla de inicio del niño no puede subir el volumen por encima de
           este nivel.
         </p>
+      </div>
+
+      <div className="rounded-2xl border-2 border-ink/15 bg-white/40 p-4">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <h3 className="text-lg font-extrabold">Teclado en pantalla</h3>
+            <p className="mt-1 max-w-md text-sm font-semibold text-ink-soft">
+              Muestra un teclado táctil cuando se toca un campo de texto en Kite
+              o en los sitios web. Actívalo en equipos sin teclado físico.
+            </p>
+          </div>
+          <Switch.Root
+            aria-label="Teclado en pantalla"
+            checked={childKeyboard}
+            className="relative mt-1 h-7 w-12 shrink-0 cursor-pointer rounded-full border-2 border-ink bg-paper transition data-[checked]:bg-leaf"
+            onCheckedChange={onChildKeyboardChange}
+          >
+            <Switch.Thumb className="block h-5 w-5 translate-x-1 rounded-full border-2 border-ink bg-marigold transition data-[checked]:translate-x-6 data-[checked]:bg-paper" />
+          </Switch.Root>
+        </div>
       </div>
 
       <UpdatesSettings />

@@ -102,16 +102,23 @@ fully verified from a CI container.
 
 ## Virtual keyboard
 
-The on-screen keyboard is currently **disabled**
-(`VIRTUAL_KEYBOARD_ENABLED = false` in `src/renderer/lib/features.ts`). Set it
-to `true` and rerun the checks below to use Kite on a touch-only device.
+The on-screen keyboard is off by default. Enable **Ajustes de adultos → Equipo →
+Teclado en pantalla** to run these checks.
 
-- [ ] Focusing any text input shows the on-screen keyboard.
+- [ ] Focusing a text input in Kite's own UI (PIN gate, settings) opens the
+      keyboard.
+- [ ] Focusing a text input inside a child window opens the keyboard above the
+      page.
 - [ ] Letters, digits, punctuation, space, backspace, and enter type into the
       focused field.
 - [ ] Shift applies to one letter and then resets.
-- [ ] Hiding the keyboard does not submit or clear the field.
-- [ ] The keyboard remains usable at the largest supported touch resolution.
+- [ ] The keyboard does not take focus away from the page or clear the field.
+- [ ] Tapping a non-text part of the page hides the keyboard.
+- [ ] **Ocultar** hides it; tapping a text field brings it back.
+- [ ] The keyboard stays above the page after clicking inside the page again.
+- [ ] It remains usable at the largest supported touch resolution.
+- [ ] With the setting off, no keyboard appears in Kite's own UI or in child
+      windows.
 
 ## Wi-Fi
 
@@ -144,6 +151,24 @@ joins, and disconnects without the parent PIN.
 - [ ] On Linux without `amixer`, the UI shows an error and the kiosk does not
       crash.
 
+## Battery
+
+The battery pill sits in the home-screen top bar and is hidden when the machine
+has no battery. Linux reads `/sys/class/power_supply`, Windows asks
+`Win32_Battery` through PowerShell, and macOS uses `pmset`.
+
+- [ ] On a Linux laptop, the pill shows the same percentage as
+      `cat /sys/class/power_supply/BAT0/capacity`.
+- [ ] On Windows, the pill shows the percentage reported by
+      `Get-CimInstance Win32_Battery`.
+- [ ] Plugging in the charger switches the pill to the charging style within a
+      minute, or immediately after Kite regains focus.
+- [ ] Unplugging it returns the pill to the discharging style.
+- [ ] At 20% or less while discharging, the pill uses the low-battery style.
+- [ ] On a desktop without a battery, the pill is absent and the top bar still
+      lays out correctly.
+- [ ] A screen reader announces the percentage and charging state.
+
 ## Taskbar and power
 
 - [ ] Launching an allow-listed app adds an item with its name and icon to the
@@ -167,8 +192,8 @@ joins, and disconnects without the parent PIN.
 ## Parent settings
 
 - [ ] The taskbar shows `kite` with the current version.
-- [ ] Three quick clicks on the taskbar version label open the PIN gate.
-- [ ] Two clicks, or three slow clicks, leave the gate closed.
+- [ ] Two quick clicks on the taskbar version label open the PIN gate.
+- [ ] One click, or two slow clicks, leave the gate closed.
 - [ ] With no PIN, creating a PIN works and opens settings.
 - [ ] A wrong PIN is rejected.
 - [ ] Five wrong PINs lock attempts for 30 seconds.
@@ -229,12 +254,11 @@ were exercised through Electron's remote debugging protocol:
 - Long website names wrapped inside their tiles instead of overlapping the next
   tile at 1366×768 and 1024×768.
 - The taskbar rendered `kite v1.0.0` from `app.getVersion()`.
-- Three quick clicks on the taskbar version label opened the PIN creation gate.
-  Two clicks, three slow clicks, and two quick `Enter` presses left it closed;
-  a third quick `Enter` opened it.
+- Two quick clicks on the taskbar version label opened the PIN creation gate.
+  One click and two slow clicks left it closed.
 - Focusing the PIN field displayed the on-screen keyboard, and a virtual key
-  inserted `1` into the field (the keyboard was still enabled at that time; it
-  is now disabled by default).
+  inserted `1` into the field. The launcher keyboard now follows the parent
+  setting instead of a hard-coded flag.
 - `window.api.config.update` was rejected while the parent session was locked.
 - Launching an unknown app ID was rejected by the main process.
 - The volume and Wi-Fi pills opened compact popovers that closed on `Escape`
@@ -314,5 +338,5 @@ On the same Linux/Wayland test display, with fixtures placed in the real
 - `npm run typecheck`, `npm run lint`, and `npm run package` passed.
 
 Windows and macOS shortcut behaviour, installed-app auto-launch, Wi-Fi hardware,
-system volume, and OS kiosk configuration still require manual verification on
-the target devices.
+system volume, battery reporting, and OS kiosk configuration still require
+manual verification on the target devices.

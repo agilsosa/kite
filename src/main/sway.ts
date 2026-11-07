@@ -23,6 +23,13 @@ const SWAY_ENABLED =
  */
 export const FILES_WINDOW_TITLE = 'Archivos';
 
+/**
+ * The on-screen keyboard is a transient window of the active child window, so
+ * Sway keeps it above the page. It is positioned as a bottom strip instead of
+ * filling the Kite layout area.
+ */
+export const KEYBOARD_WINDOW_TITLE = 'Teclado';
+
 export interface LayoutArea {
   x: number;
   y: number;
@@ -240,6 +247,7 @@ function collectKiteWindowIds(node: SwayNode, appId: string, ids: Set<number>) {
   if (
     ownsWindow &&
     node.name !== FILES_WINDOW_TITLE &&
+    node.name !== KEYBOARD_WINDOW_TITLE &&
     (node.type === 'con' || node.type === 'floating_con') &&
     node.fullscreen_mode !== 1 &&
     typeof node.id === 'number'
@@ -359,6 +367,38 @@ export async function positionFilesWindow(): Promise<void> {
     `[${selector}] resize set ${width} ${height}`,
     `[${selector}] move absolute position ${x} ${y}`,
     `[${selector}] focus`,
+  ]) {
+    try {
+      await runSway([command]);
+    } catch {
+      // The window may not be mapped yet; the next call retries.
+    }
+  }
+}
+
+/**
+ * Place the on-screen keyboard as a bottom strip. Sway ignores the bounds a
+ * Wayland client requests, so the position is pushed through the compositor.
+ */
+export async function positionKeyboardWindow(
+  width: number,
+  height: number,
+): Promise<void> {
+  if (!SWAY_ENABLED) {
+    return;
+  }
+
+  const area = getLayoutArea();
+  const keyboardWidth = Math.min(area.width, width);
+  const keyboardHeight = Math.min(area.height, height);
+  const x = area.x + Math.round((area.width - keyboardWidth) / 2);
+  const y = area.y + area.height - keyboardHeight;
+  const selector = `title="${KEYBOARD_WINDOW_TITLE}"`;
+
+  for (const command of [
+    `[${selector}] floating enable`,
+    `[${selector}] resize set ${keyboardWidth} ${keyboardHeight}`,
+    `[${selector}] move absolute position ${x} ${y}`,
   ]) {
     try {
       await runSway([command]);

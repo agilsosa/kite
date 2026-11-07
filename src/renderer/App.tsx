@@ -4,11 +4,11 @@ import type { PublicApp, PublicConfig } from '../shared/types';
 import { ParentGateDialog } from './components/ParentGateDialog';
 import { VirtualKeyboard } from './components/VirtualKeyboard';
 import { ParentSettingsDialog } from './components/settings/ParentSettingsDialog';
+import { useBatteryStatus } from './hooks/useBatteryStatus';
 import { useKioskConfig } from './hooks/useKioskConfig';
 import { useParentStatus } from './hooks/useParentStatus';
 import { useVolume } from './hooks/useVolume';
 import { useWifiStatus } from './hooks/useWifiStatus';
-import { VIRTUAL_KEYBOARD_ENABLED } from './lib/features';
 import { errorMessage } from './lib/format';
 import { HomeScreen, type HomeNotice } from './screens/HomeScreen';
 import { Button } from './components/Button';
@@ -65,6 +65,7 @@ export function App() {
     setMuted,
   } = useVolume();
   const { status: wifi, refresh: refreshWifi } = useWifiStatus();
+  const { status: battery } = useBatteryStatus();
 
   const [gateOpen, setGateOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -139,6 +140,7 @@ export function App() {
       <div className="min-h-0 flex-1 overflow-y-auto">
         {config ? (
           <HomeScreen
+            battery={battery}
             config={config}
             notice={notice}
             onDismissNotice={() => setNotice(null)}
@@ -181,7 +183,7 @@ export function App() {
         </>
       ) : null}
 
-      {VIRTUAL_KEYBOARD_ENABLED ? <VirtualKeyboard /> : null}
+      {config?.childKeyboard ? <VirtualKeyboard /> : null}
     </div>
   );
 }

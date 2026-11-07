@@ -428,6 +428,9 @@ export function openChildWindow(rawUrl: string): BrowserWindow {
     show: false,
     autoHideMenuBar: true,
     webPreferences: {
+      // Reports text-field focus to the main process for the on-screen
+      // keyboard. It deliberately exposes no API to the page.
+      preload: path.join(__dirname, 'child-preload.cjs'),
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: true,

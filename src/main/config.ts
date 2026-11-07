@@ -26,6 +26,7 @@ const DEFAULT_CONFIG: KioskConfig = {
   sampleAppsVersion: 0,
   allowedOrigins: [],
   volumeCap: 70,
+  childKeyboard: false,
   parentPin: null,
   syncEndpoint: null,
   lastSyncedAt: null,
@@ -90,7 +91,10 @@ export function getStore(): Store<KioskConfig> {
 }
 
 export function getConfig(): KioskConfig {
-  return structuredClone(getStore().store);
+  const config = structuredClone(getStore().store);
+
+  // Configs written before this option existed have no value stored yet.
+  return { ...config, childKeyboard: config.childKeyboard === true };
 }
 
 export function getPublicConfig(): PublicConfig {
@@ -105,6 +109,7 @@ export function getPublicConfig(): PublicConfig {
     })),
     allowedOrigins: config.allowedOrigins,
     volumeCap: config.volumeCap,
+    childKeyboard: config.childKeyboard,
     hasParentPin: config.parentPin !== null,
   };
 }
@@ -203,6 +208,16 @@ export function updateConfig(update: ConfigUpdate): PublicConfig {
     }
 
     next.volumeCap = update.volumeCap;
+  }
+
+  if (update.childKeyboard !== undefined) {
+    if (typeof update.childKeyboard !== 'boolean') {
+      throw new Error(
+        'El teclado en pantalla debe estar activado o desactivado',
+      );
+    }
+
+    next.childKeyboard = update.childKeyboard;
   }
 
   if (update.allowedApps !== undefined) {

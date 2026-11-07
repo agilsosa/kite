@@ -34,6 +34,7 @@ export function ParentSettingsDialog({
   const [apps, setApps] = useState<AllowedApp[]>([]);
   const [origins, setOrigins] = useState(config.allowedOrigins);
   const [volumeCap, setVolumeCap] = useState(config.volumeCap);
+  const [childKeyboard, setChildKeyboard] = useState(config.childKeyboard);
   const [loadingApps, setLoadingApps] = useState(false);
   const [appsLoaded, setAppsLoaded] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -53,6 +54,7 @@ export function ParentSettingsDialog({
     setChildName(config.childName);
     setOrigins(config.allowedOrigins);
     setVolumeCap(config.volumeCap);
+    setChildKeyboard(config.childKeyboard);
     setApps([]);
     setLoadingApps(true);
     setAppsLoaded(false);
@@ -102,6 +104,7 @@ export function ParentSettingsDialog({
       allowedApps: apps,
       allowedOrigins: origins,
       volumeCap,
+      childKeyboard,
     };
 
     try {
@@ -121,6 +124,7 @@ export function ParentSettingsDialog({
     setChildName(result.config.childName);
     setOrigins(result.config.allowedOrigins);
     setVolumeCap(result.config.volumeCap);
+    setChildKeyboard(result.config.childKeyboard);
     setApps(result.apps);
     setAppsLoaded(true);
     setLoadingApps(false);
@@ -182,7 +186,9 @@ export function ParentSettingsDialog({
         </Tabs.Panel>
         <Tabs.Panel className="pt-6" value="device">
           <DeviceSettings
+            childKeyboard={childKeyboard}
             childName={childName}
+            onChildKeyboardChange={setChildKeyboard}
             onChildNameChange={setChildName}
             onVolumeCapChange={setVolumeCap}
             volumeCap={volumeCap}

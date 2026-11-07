@@ -27,6 +27,7 @@ import {
   scanWifiNetworks,
 } from './wifi';
 import { getVolumeState, setVolumeLevel, setVolumeMuted } from './volume';
+import { getBatteryStatus } from './battery';
 import { runPowerAction } from './power';
 import { activateTaskbarItem, getTaskbarItems } from './taskbar';
 import {
@@ -38,6 +39,13 @@ import {
 import { syncFromEndpoint } from './remoteConfig';
 import { IPC } from '../shared/ipc';
 import type { KeyboardInput } from '../shared/types';
+import {
+  dismissVirtualKeyboard,
+  getVirtualKeyboardTarget,
+  hideVirtualKeyboard,
+  resizeVirtualKeyboard,
+  setChildTextFocus,
+} from './virtualKeyboard';
 
 const PARENT_SESSION_MS = 5 * 60 * 1000;
 const MAX_PIN_ATTEMPTS = 5;
@@ -134,7 +142,13 @@ export function registerIpcHandlers(context: IpcContext) {
       throw new Error('La actualización de la configuración no es válida');
     }
 
-    return updateConfig(update);
+    const next = updateConfig(update);
+
+    if ((update as { childKeyboard?: unknown }).childKeyboard === false) {
+      hideVirtualKeyboard();
+    }
+
+    return next;
   });
 
   ipcMain.handle(IPC.appLaunch, async (event, appId: unknown) => {
@@ -240,9 +254,61 @@ export function registerIpcHandlers(context: IpcContext) {
     return setVolumeMuted(muted, getConfig().volumeCap);
   });
 
+  ipcMain.handle(IPC.systemBattery, (event) => {
+    assertMainWindowSender(event);
+    return getBatteryStatus();
+  });
+
   ipcMain.handle(IPC.keyboardSend, (event, input: KeyboardInput) => {
+    const record = getWindowRecord(event.sender);
+
+    if (record?.kind === 'keyboard') {
+      const target = getVirtualKeyboardTarget();
+
+      if (!target) {
+        throw new Error('No hay ningún campo de texto activo');
+      }
+
+      sendKeyboardInput(target, input);
+      return;
+    }
+
     assertMainWindowSender(event);
     sendKeyboardInput(event.sender, input);
+  });
+
+  ipcMain.handle(IPC.keyboardHide, (event) => {
+    if (getWindowRecord(event.sender)?.kind !== 'keyboard') {
+      throw new Error('Esta acción no está permitida');
+    }
+
+    dismissVirtualKeyboard();
+  });
+
+  ipcMain.handle(IPC.keyboardResize, (event, height: unknown) => {
+    if (getWindowRecord(event.sender)?.kind !== 'keyboard') {
+      throw new Error('Esta acción no está permitida');
+    }
+
+    if (typeof height !== 'number') {
+      throw new Error('Altura del teclado no válida');
+    }
+
+    resizeVirtualKeyboard(height);
+  });
+
+  ipcMain.on(IPC.childTextFocus, (event, focused: unknown) => {
+    const record = getWindowRecord(event.sender);
+
+    if (
+      !record ||
+      record.kind !== 'child-web' ||
+      typeof focused !== 'boolean'
+    ) {
+      return;
+    }
+
+    setChildTextFocus(record.win, focused);
   });
 
   ipcMain.handle(IPC.parentStatus, (event) => {

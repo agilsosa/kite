@@ -1,8 +1,14 @@
-import type { VolumeState, WifiStatus } from '../../shared/types';
+import type {
+  BatteryStatus,
+  VolumeState,
+  WifiStatus,
+} from '../../shared/types';
+import { BatteryIndicator } from './BatteryIndicator';
 import { VolumePopover } from './VolumePopover';
 import { WifiPopover } from './WifiPopover';
 
 interface TopBarProps {
+  battery: BatteryStatus;
   childName: string;
   volume: VolumeState;
   volumeError: string | null;
@@ -14,6 +20,7 @@ interface TopBarProps {
 }
 
 export function TopBar({
+  battery,
   childName,
   volume,
   volumeError,
@@ -42,6 +49,8 @@ export function TopBar({
         />
 
         <WifiPopover onChanged={onRefreshWifi} status={wifi} />
+
+        <BatteryIndicator status={battery} />
       </div>
     </header>
   );

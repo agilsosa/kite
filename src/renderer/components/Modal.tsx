@@ -28,9 +28,9 @@ export function Modal({
     <Dialog.Root open={open} onOpenChange={onOpenChange} modal={modal}>
       <Dialog.Portal>
         <Dialog.Backdrop className="fixed inset-0 z-40 bg-ink/45 backdrop-blur-sm" />
-        <Dialog.Viewport className="fixed inset-0 z-50 grid place-items-center overflow-hidden p-4">
+        <Dialog.Viewport className="fixed inset-0 z-50 grid place-items-center overflow-hidden px-4 pt-4 pb-[calc(1rem+var(--kite-keyboard-height,0px))]">
           <Dialog.Popup
-            className={`relative flex max-h-[calc(100dvh-2rem)] w-full max-w-2xl flex-col overflow-hidden rounded-[2rem] border-4 border-ink bg-paper shadow-kite ${className}`.trim()}
+            className={`relative flex max-h-[calc(100dvh-2rem-var(--kite-keyboard-height,0px))] w-full max-w-2xl flex-col overflow-hidden rounded-[2rem] border-4 border-ink bg-paper shadow-kite ${className}`.trim()}
           >
             <div className="shrink-0 border-b-2 border-ink/10 px-6 pt-6 pb-4 sm:px-8 sm:pt-8">
               <Dialog.Title className="pr-12 text-3xl font-black tracking-tight sm:text-4xl">

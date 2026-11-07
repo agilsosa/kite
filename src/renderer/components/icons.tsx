@@ -1,6 +1,11 @@
 import {
   ArrowLeft,
   ArrowRight,
+  BatteryCharging,
+  BatteryFull,
+  BatteryLow,
+  BatteryMedium,
+  BatteryWarning,
   Delete,
   Lock,
   Plus,
@@ -40,3 +45,8 @@ export const TrashIcon = styled(Trash2);
 export const RefreshIcon = styled(RefreshCw);
 export const CloseIcon = styled(X);
 export const PowerIcon = styled(Power);
+export const BatteryChargingIcon = styled(BatteryCharging);
+export const BatteryFullIcon = styled(BatteryFull);
+export const BatteryMediumIcon = styled(BatteryMedium);
+export const BatteryLowIcon = styled(BatteryLow);
+export const BatteryWarningIcon = styled(BatteryWarning);

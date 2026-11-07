@@ -36,6 +36,8 @@ const api: KiteApi = {
   },
   keyboard: {
     send: (input) => ipcRenderer.invoke(IPC.keyboardSend, input),
+    hide: () => ipcRenderer.invoke(IPC.keyboardHide),
+    resize: (height) => ipcRenderer.invoke(IPC.keyboardResize, height),
   },
   parent: {
     status: () => ipcRenderer.invoke(IPC.parentStatus),
@@ -58,6 +60,7 @@ const api: KiteApi = {
     home: () => ipcRenderer.invoke(IPC.systemHome),
     quit: () => ipcRenderer.invoke(IPC.systemQuit),
     power: (action) => ipcRenderer.invoke(IPC.systemPower, action),
+    battery: () => ipcRenderer.invoke(IPC.systemBattery),
   },
   taskbar: {
     list: () => ipcRenderer.invoke(IPC.taskbarList),

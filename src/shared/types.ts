@@ -56,6 +56,11 @@ export interface KioskConfig {
   sampleAppsVersion?: number;
   allowedOrigins: string[];
   volumeCap: number;
+  /**
+   * Show the on-screen keyboard inside child web windows when a text field is
+   * focused. Off by default; devices with a physical keyboard leave it off.
+   */
+  childKeyboard: boolean;
   parentPin: PinRecord | null;
   syncEndpoint: string | null;
   lastSyncedAt: number | null;
@@ -68,6 +73,7 @@ export interface PublicConfig {
   allowedApps: PublicApp[];
   allowedOrigins: string[];
   volumeCap: number;
+  childKeyboard: boolean;
   hasParentPin: boolean;
 }
 
@@ -76,6 +82,7 @@ export interface ConfigUpdate {
   allowedApps?: AllowedApp[];
   allowedOrigins?: string[];
   volumeCap?: number;
+  childKeyboard?: boolean;
 }
 
 export interface WifiNetwork {
@@ -94,6 +101,13 @@ export interface VolumeState {
   level: number;
   muted: boolean;
   cap: number;
+}
+
+export interface BatteryStatus {
+  /** Battery percentage from 0 to 100, or null when the device has no battery. */
+  level: number | null;
+  /** True while the device is plugged in and the battery is charging or full. */
+  charging: boolean;
 }
 
 export interface ParentStatus {
@@ -214,6 +228,8 @@ export interface KiteApi {
   };
   keyboard: {
     send: (input: KeyboardInput) => Promise<void>;
+    hide: () => Promise<void>;
+    resize: (height: number) => Promise<void>;
   };
   parent: {
     status: () => Promise<ParentStatus>;
@@ -236,6 +252,7 @@ export interface KiteApi {
     home: () => Promise<void>;
     quit: () => Promise<void>;
     power: (action: PowerAction) => Promise<void>;
+    battery: () => Promise<BatteryStatus>;
   };
   taskbar: {
     list: () => Promise<TaskbarItem[]>;

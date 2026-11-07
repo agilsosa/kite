@@ -1,12 +1,5 @@
 import { useEffect, useState } from 'react';
-
-function isTextEntry(element: Element | null): boolean {
-  return (
-    element instanceof HTMLInputElement ||
-    element instanceof HTMLTextAreaElement ||
-    (element instanceof HTMLElement && element.isContentEditable)
-  );
-}
+import { isTextEntry } from '../../shared/textEntry';
 
 export function useVirtualKeyboardActive(): boolean {
   const [active, setActive] = useState(false);
