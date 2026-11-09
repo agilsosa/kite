@@ -18,8 +18,8 @@
     "kite": "npm run start --workspace=kite",
     "kite:package": "npm run package --workspace=kite",
     "kite:make": "npm run make --workspace=kite",
-    "cloud": "npm run dev --workspace=kite-cloud",
-    "cloud:deploy": "npm run deploy --workspace=kite-cloud"
+    "admin": "npm run dev --workspace=kite-admin",
+    "admin:deploy": "npm run deploy --workspace=kite-admin"
   },
   "devDependencies": {
     "oxfmt": "^0.41.0",

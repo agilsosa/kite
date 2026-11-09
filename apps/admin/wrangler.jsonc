@@ -1,6 +1,6 @@
 {
   "$schema": "../../node_modules/wrangler/config-schema.json",
-  "name": "kite-cloud",
+  "name": "kite-admin",
   "main": "worker/index.ts",
   "compatibility_date": "2026-11-09",
   "observability": {

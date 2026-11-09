@@ -7,7 +7,7 @@ export default {
     const url = new URL(request.url);
 
     if (request.method === 'GET' && url.pathname === '/api/health') {
-      return new Response(JSON.stringify({ ok: true, service: 'kite-cloud' }), {
+      return new Response(JSON.stringify({ ok: true, service: 'kite-admin' }), {
         headers: JSON_HEADERS,
       });
     }

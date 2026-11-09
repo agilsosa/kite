@@ -1,4 +1,4 @@
-# Kite Cloud
+# Kite Admin
 
 Cloudflare Workers + Vite control plane for Kite. It will store and publish the
 child profiles that Kite clients fetch through the remote configuration sync
@@ -15,7 +15,7 @@ documented in
 ## Structure
 
 ```text
-apps/cloud
+apps/admin
 ├── src/                 React admin interface
 ├── worker/              Worker API entry point
 ├── worker-configuration.d.ts  Generated Worker types
@@ -38,16 +38,16 @@ npm run cf-typegen  # Regenerate worker-configuration.d.ts
 From the repository root:
 
 ```bash
-npm run dev --workspace=kite-cloud
-npm run build --workspace=kite-cloud
-npm run deploy --workspace=kite-cloud
+npm run dev --workspace=kite-admin
+npm run build --workspace=kite-admin
+npm run deploy --workspace=kite-admin
 ```
 
 ## API
 
 | Method | Path          | Response                                  |
 | ------ | ------------- | ----------------------------------------- |
-| `GET`  | `/api/health` | `{ "ok": true, "service": "kite-cloud" }` |
+| `GET`  | `/api/health` | `{ "ok": true, "service": "kite-admin" }` |
 
 ## Configuration
 

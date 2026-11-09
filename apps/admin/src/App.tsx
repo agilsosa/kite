@@ -48,7 +48,7 @@ export default function App() {
     <main className="grid min-h-screen place-items-center bg-slate-950 px-6 text-slate-100">
       <section className="w-full max-w-2xl rounded-3xl border border-slate-800 bg-slate-900/70 p-8 shadow-2xl shadow-black/40">
         <p className="text-sm font-semibold tracking-[0.3em] text-cyan-300 uppercase">
-          Kite Cloud
+          Kite Admin
         </p>
         <h1 className="mt-3 text-4xl font-black tracking-tight">
           Administración de perfiles

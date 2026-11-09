@@ -4,7 +4,7 @@
 
 - `apps/kite` — the Electron kiosk launcher used on the child device. It has its
   own AGENTS.md with UI rules specific to the renderer.
-- `apps/cloud` — the Cloudflare Workers + Vite control plane that will publish
+- `apps/admin` — the Cloudflare Workers + Vite control plane that will publish
   the child profiles consumed by Kite's remote configuration sync.
 - `packages/*` — shared TypeScript packages, when code needs to be reused by
   both apps.
@@ -20,7 +20,7 @@
   - `npm run lint:fix`
   - `npm run clean`
 - Target a single workspace with npm, for example
-  `npm run dev --workspace=kite` or `npm run deploy --workspace=kite-cloud`.
+  `npm run dev --workspace=kite` or `npm run deploy --workspace=kite-admin`.
 - Keep task descriptions in `turbo.json` up to date. They are read by agents and
   by people.
 - Turborepo ships version-matched documentation in `node_modules/turbo/docs/`.
@@ -31,11 +31,11 @@
 
 ## Cloudflare
 
-- `apps/cloud` uses the Cloudflare Vite plugin with a Worker entry in
+- `apps/admin` uses the Cloudflare Vite plugin with a Worker entry in
   `worker/index.ts` and static assets in `src/`.
-- Configure bindings in `apps/cloud/wrangler.jsonc`. Do not edit the generated
+- Configure bindings in `apps/admin/wrangler.jsonc`. Do not edit the generated
   `dist/wrangler.json`.
-- Regenerate worker types with `npm run cf-typegen --workspace=kite-cloud`
+- Regenerate worker types with `npm run cf-typegen --workspace=kite-admin`
   after changing bindings, and commit `worker-configuration.d.ts`.
 
 ## UI
