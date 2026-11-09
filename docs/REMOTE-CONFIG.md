@@ -65,14 +65,20 @@ when omitted, so a server that does not manage PINs keeps working unchanged.
       "id": "firefox",
       "name": "Firefox",
       "icon": "globe",
-      "path": "C:\\Program Files\\Mozilla Firefox\\firefox.exe",
+      "paths": {
+        "linux": "/usr/bin/firefox",
+        "windows": "C:\\Program Files\\Mozilla Firefox\\firefox.exe"
+      },
       "args": []
     },
     {
       "id": "drawing",
       "name": "Dibujar",
       "icon": "palette",
-      "path": "C:\\Program Files\\Drawing\\drawing.exe"
+      "paths": {
+        "linux": "/usr/bin/drawing",
+        "windows": "C:\\Program Files\\Drawing\\drawing.exe"
+      }
     }
   ],
   "features": {
@@ -108,13 +114,17 @@ under `features`; this version stores that object but does not interpret it.
 
 ### App fields
 
-| Field  | Type     | Required | Rules                                                                                                             |
-| ------ | -------- | -------- | ----------------------------------------------------------------------------------------------------------------- |
-| `id`   | string   | No       | 1–64 characters from `A–Z`, `a–z`, `0–9`, `_`, `-`. Must be unique when provided. If omitted, Kite generates one. |
-| `name` | string   | Yes      | 1–40 characters after trimming.                                                                                   |
-| `icon` | string   | No       | One of the icon keys below. Unknown values fall back to `puzzle`.                                                 |
-| `path` | string   | Yes      | Absolute path to the executable on the target machine, at most 1000 characters.                                   |
-| `args` | string[] | No       | At most 10 arguments, each at most 200 characters.                                                                |
+| Field   | Type     | Required  | Rules                                                                                                             |
+| ------- | -------- | --------- | ----------------------------------------------------------------------------------------------------------------- |
+| `id`    | string   | No        | 1–64 characters from `A–Z`, `a–z`, `0–9`, `_`, `-`. Must be unique when provided. If omitted, Kite generates one. |
+| `name`  | string   | Yes       | 1–40 characters after trimming.                                                                                   |
+| `icon`  | string   | No        | One of the icon keys below. Unknown values fall back to `puzzle`.                                                 |
+| `paths` | object   | See below | Executable path per operating system. See [Per-OS app paths](#per-os-app-paths).                                  |
+| `path`  | string   | See below | Legacy single executable path, used only when `paths` has no entry for the current OS. At most 1000 characters.   |
+| `args`  | string[] | No        | At most 10 arguments, each at most 200 characters.                                                                |
+
+Each app must provide either `paths` or the legacy `path`. When `paths` is
+present, its entry for the current operating system wins over `path`.
 
 Valid icon keys:
 
@@ -123,8 +133,47 @@ puzzle, gamepad, book, palette, music, film, camera, flask, globe, rocket,
 cat, bot, trophy, wrench, star, shapes, sparkles, compass, folder
 ```
 
-`path` is machine-specific. The API must return paths that exist on the target
-kiosk (or return different profiles per device/site from the server side).
+### Per-OS app paths
+
+`paths` is an object keyed by operating system so one backend document works on
+every kiosk, without the server knowing which device is syncing:
+
+```json
+{
+  "name": "Firefox",
+  "paths": {
+    "linux": "/usr/bin/firefox",
+    "windows": "C:\\Program Files\\Mozilla Firefox\\firefox.exe"
+  }
+}
+```
+
+Supported keys are `linux`, `windows`, and `macos`. Each value is an absolute
+path of at most 1000 characters:
+
+- `linux` and `macos` must start with `/`.
+- `windows` must be a drive path such as `C:\Program Files\App\app.exe` or a
+  UNC path such as `\\server\share\app.exe`.
+
+Only the entry for the operating system Kite is running on is read. The other
+entries are optional, so a Linux-only or Windows-only deployment can send just
+that one key. If `paths` has no entry for the current OS, Kite falls back to the
+legacy `path` field; if neither is available the sync fails with:
+
+```text
+La aplicación "Firefox" no tiene una ruta para Linux
+```
+
+Use `paths` for new integrations. `path` remains supported for older servers
+and for profiles that only target one OS. Unknown keys inside `paths` are
+rejected rather than ignored:
+
+```text
+Las rutas de "Firefox" incluyen una plataforma no válida: darwin
+```
+
+Paths are still machine-specific. Return paths that exist on the target kiosk,
+or return different profiles per device/site from the server side.
 
 ## Future features
 
@@ -160,6 +209,9 @@ error for the first problem found, for example:
 - `El PIN de adultos debe tener de 4 a 8 dígitos`
 - `El sitio web en la posición 2 no es válido: Los sitios web deben usar HTTPS`
 - `La aplicación "Firefox" usa un id repetido (firefox)`
+- `La aplicación "Firefox" no tiene una ruta para Linux`
+- `Las rutas de "Firefox" deben ser un objeto`
+- `Las rutas de "Firefox" incluyen una plataforma no válida: darwin`
 
 Limits are enforced, not truncated: sending 31 apps or 51 websites is an error
 rather than silently dropping the extras.
@@ -204,5 +256,6 @@ A quick contract check:
 curl -fsS https://example.com/kite.json | jq .
 ```
 
-Confirm that every app path and icon is valid for the target platform before
-pointing a production kiosk at the endpoint.
+Confirm that every app has a valid route for the operating system of the target
+kiosk (`paths.linux`, `paths.windows`, or `paths.macos`) and that every icon is
+valid before pointing a production kiosk at the endpoint.

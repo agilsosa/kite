@@ -73,7 +73,16 @@
   "$defs": {
     "app": {
       "type": "object",
-      "required": ["name", "path"],
+      "required": ["name"],
+      "description": "Each app must provide either `paths` or the legacy `path`. At sync time Kite resolves the entry for the operating system it is running on; if `paths` has no entry for that OS, `path` is used instead. The other-platform entries are optional, so one payload can serve Linux, Windows, and macOS kiosks.",
+      "anyOf": [
+        {
+          "required": ["path"]
+        },
+        {
+          "required": ["paths"]
+        }
+      ],
       "properties": {
         "id": {
           "type": "string",
@@ -108,11 +117,37 @@
             "folder"
           ]
         },
+        "paths": {
+          "type": "object",
+          "description": "Executable path for each operating system. Kite reads only the key that matches the machine it runs on. Unknown keys are rejected.",
+          "additionalProperties": false,
+          "properties": {
+            "linux": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 1000,
+              "pattern": "^/"
+            },
+            "windows": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 1000,
+              "pattern": "^(?:[A-Za-z]:[\\\\/]|\\\\\\\\|/)"
+            },
+            "macos": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 1000,
+              "pattern": "^/"
+            }
+          }
+        },
         "path": {
           "type": "string",
           "minLength": 1,
           "maxLength": 1000,
-          "pattern": "^(?:[A-Za-z]:[\\\\/]|/)"
+          "description": "Legacy single executable path, kept as a fallback for older servers and single-platform profiles. Used only when `paths` has no entry for the current OS.",
+          "pattern": "^(?:[A-Za-z]:[\\\\/]|\\\\\\\\|/)"
         },
         "args": {
           "type": "array",

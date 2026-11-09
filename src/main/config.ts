@@ -8,8 +8,14 @@ import {
   timingSafeEqual,
 } from 'node:crypto';
 import { hostname, userInfo } from 'node:os';
-import path from 'node:path';
 import { DEFAULT_APP_ICON, normalizeAppIcon } from '../shared/appIcons';
+import type { AppPlatform, AppPlatformPaths } from '../shared/appPaths';
+import {
+  APP_PLATFORM_LABELS,
+  appPlatform,
+  isAbsoluteAppPath,
+  pickAppPath,
+} from '../shared/appPaths';
 import type {
   AllowedApp,
   ConfigUpdate,
@@ -146,21 +152,68 @@ export function normalizeOrigin(value: unknown): string {
   return url.origin;
 }
 
+const APP_PLATFORMS = ['linux', 'windows', 'macos'] as const;
+
+interface AppCandidate extends Partial<AllowedApp> {
+  paths?: unknown;
+}
+
+function readAppPaths(value: unknown, name: string): AppPlatformPaths | null {
+  if (value === undefined) {
+    return null;
+  }
+
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+    throw new Error(`Las rutas de "${name}" deben ser un objeto`);
+  }
+
+  const record = value as Record<string, unknown>;
+  const paths: AppPlatformPaths = {};
+
+  for (const key of Object.keys(record)) {
+    if (!APP_PLATFORMS.includes(key as AppPlatform)) {
+      throw new Error(
+        `Las rutas de "${name}" incluyen una plataforma no válida: ${key}`,
+      );
+    }
+
+    paths[key as AppPlatform] = assertText(
+      record[key],
+      `La ruta de "${name}" para ${APP_PLATFORM_LABELS[key as AppPlatform]}`,
+      1000,
+    );
+  }
+
+  return paths;
+}
+
 export function normalizeApp(value: unknown): AllowedApp {
   if (typeof value !== 'object' || value === null) {
     throw new Error('Las aplicaciones deben ser objetos');
   }
 
-  const candidate = value as Partial<AllowedApp>;
+  const candidate = value as AppCandidate;
   const name = assertText(candidate.name, 'El nombre de la aplicación', 40);
   const icon = assertText(
     candidate.icon ?? DEFAULT_APP_ICON,
     'El icono de la aplicación',
     32,
   );
-  const rawPath = assertText(candidate.path, 'La ruta de la aplicación', 1000);
+  const paths = readAppPaths(candidate.paths, name);
+  const legacyPath =
+    candidate.path === undefined
+      ? undefined
+      : assertText(candidate.path, 'La ruta de la aplicación', 1000);
+  const resolved = pickAppPath(paths, legacyPath, process.platform);
 
-  if (!path.isAbsolute(rawPath)) {
+  if (!resolved) {
+    const platform = appPlatform(process.platform);
+    const detail = platform ? ` para ${APP_PLATFORM_LABELS[platform]}` : '';
+
+    throw new Error(`La aplicación "${name}" no tiene una ruta${detail}`);
+  }
+
+  if (!isAbsoluteAppPath(resolved.path, process.platform)) {
     throw new Error(`La ruta de "${name}" debe ser absoluta`);
   }
 
@@ -182,7 +235,7 @@ export function normalizeApp(value: unknown): AllowedApp {
         : randomUUID(),
     name,
     icon: normalizeAppIcon(icon),
-    path: rawPath,
+    path: resolved.path,
     ...(args.length > 0 ? { args: args.map((arg) => arg.trim()) } : {}),
   };
 }

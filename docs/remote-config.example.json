@@ -10,14 +10,20 @@
       "id": "firefox",
       "name": "Firefox",
       "icon": "globe",
-      "path": "C:\\Program Files\\Mozilla Firefox\\firefox.exe",
+      "paths": {
+        "linux": "/usr/bin/firefox",
+        "windows": "C:\\Program Files\\Mozilla Firefox\\firefox.exe"
+      },
       "args": []
     },
     {
       "id": "drawing",
       "name": "Dibujar",
       "icon": "palette",
-      "path": "C:\\Program Files\\Drawing\\drawing.exe"
+      "paths": {
+        "linux": "/usr/bin/drawing",
+        "windows": "C:\\Program Files\\Drawing\\drawing.exe"
+      }
     }
   ],
   "features": {

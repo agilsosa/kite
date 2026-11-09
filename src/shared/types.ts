@@ -1,3 +1,5 @@
+import type { AppPlatformPaths } from './appPaths';
+
 export type ButtonVariant = 'primary' | 'secondary' | 'danger' | 'ghost';
 
 export type JsonValue =
@@ -30,7 +32,10 @@ export interface RemoteApp {
   id?: string;
   name: string;
   icon?: string;
-  path: string;
+  /** Legacy single executable path, used when `paths` has no entry. */
+  path?: string;
+  /** Per-OS executable paths, so one payload serves Linux and Windows. */
+  paths?: AppPlatformPaths;
   args?: string[];
 }
 
