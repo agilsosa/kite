@@ -11,7 +11,9 @@ fully verified from a CI container.
 - [ ] `npm run lint` passes.
 - [ ] `npm run make` succeeds on Windows and macOS (and Linux if targeted).
 - [ ] The packaged app starts frameless, with no OS taskbar/dock entry and no
-      close button, and fills the usable work area of the display.
+      close button.
+- [ ] On Linux and macOS it fills the usable work area; on Windows it enters
+      OS fullscreen and the Windows taskbar is not visible below or above it.
 - [ ] Kite's own taskbar is visible along the bottom of the window, showing the
       Kite button, the clock, and the power button.
 - [ ] Entering compositor fullscreen fills exactly the display: the taskbar's

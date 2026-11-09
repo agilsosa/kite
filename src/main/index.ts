@@ -39,7 +39,9 @@ function createMainWindow(): BrowserWindow {
     closable: true,
     minimizable: false,
     maximizable: false,
-    fullscreenable: false,
+    // Windows hides the taskbar for a true OS-fullscreen window. Wayland and
+    // X11 keep this off so the compositor geometry stays under our control.
+    fullscreenable: process.platform === 'win32',
     // Keep this resizable: `resizable: false` makes Chromium advertise a
     // fixed size on Wayland, and a compositor fullscreen then hands back the
     // output size plus the decoration shadow extents (1398x778 on a 1366x768
@@ -70,6 +72,14 @@ function createMainWindow(): BrowserWindow {
   win.once('ready-to-show', () => {
     layoutWindow(win);
     win.show();
+
+    // A work-area-sized window leaves the Windows taskbar visible below it.
+    // Real fullscreen covers the whole monitor and makes Windows hide the
+    // taskbar. Other platforms use the compositor layout as before.
+    if (process.platform === 'win32') {
+      win.setFullScreen(true);
+    }
+
     win.focus();
   });
 

@@ -15,9 +15,10 @@ installer for Windows plus `.deb` and `.rpm` packages for Linux.
 
 ## What it does
 
-- Fills the usable screen area with a frameless window that has no menu, no
-  operating-system taskbar entry, and no close button. The window cannot be
-  closed, minimized, or moved by the child.
+- Fills the screen with a frameless window that has no menu, no
+  operating-system taskbar entry, and no close button. On Windows it uses OS
+  fullscreen so the taskbar is hidden; on Linux it fills the compositor's
+  usable area. The window cannot be closed, minimized, or moved by the child.
 - Draws its own taskbar along the bottom of the window. It lists every
   launched native app, the Files window, and open websites, highlights the
   focused one, shows the clock, and offers Restart and Shut down after an

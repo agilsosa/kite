@@ -139,9 +139,18 @@ export function keepWindowInLayout(win: BrowserWindow) {
    */
   win.on('leave-full-screen', () => {
     setTimeout(() => {
-      if (!win.isDestroyed()) {
-        void refreshSwayLayout().then(() => layoutWindow(win));
+      if (win.isDestroyed()) {
+        return;
       }
+
+      // On Windows the kiosk surface is a real fullscreen window so the
+      // taskbar stays hidden. Re-enter if anything drops it out of fullscreen.
+      if (process.platform === 'win32') {
+        win.setFullScreen(true);
+        return;
+      }
+
+      void refreshSwayLayout().then(() => layoutWindow(win));
     }, 50);
   });
 
