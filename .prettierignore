@@ -1,2 +1,7 @@
 .agents/
-out/
+.turbo/
+**/.vite/
+**/out/
+**/dist/
+**/.wrangler/
+**/worker-configuration.d.ts

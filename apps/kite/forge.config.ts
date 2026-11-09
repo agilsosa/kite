@@ -13,6 +13,13 @@ import { GITHUB_REPOSITORY } from './src/shared/release';
 
 const linuxIcon = path.join(__dirname, 'build', 'icon.png');
 
+// npm workspaces hoist dependencies to the repository root, so resolve the
+// Windows helper through the package itself instead of assuming it lives under
+// this workspace's node_modules.
+const easyVolumeRoot = path.dirname(
+  require.resolve('easy-volume/package.json'),
+);
+
 // `electron-installer-redhat` does not expose `specTemplate` or
 // `desktopTemplate` in its Forge option types, but the underlying installer
 // accepts both. The desktop template drops an upstream duplicate
@@ -37,7 +44,7 @@ const config: ForgeConfig = {
     // easy-volume's Windows helper has to run as a child process, and files
     // inside an asar archive cannot be executed.
     extraResource: [
-      'node_modules/easy-volume/dist/platforms/windows/volume.exe',
+      path.join(easyVolumeRoot, 'dist', 'platforms', 'windows', 'volume.exe'),
     ],
   },
   rebuildConfig: {},

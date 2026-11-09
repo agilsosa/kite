@@ -144,3 +144,10 @@ vite.config.ts.timestamp-*
 
 # Electron-Forge
 out/
+
+# Turborepo
+.turbo/
+
+# Cloudflare Workers
+.wrangler/
+.dev.vars*

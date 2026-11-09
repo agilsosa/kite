@@ -1,0 +1,32 @@
+{
+  "$schema": "https://turborepo.dev/schema.json",
+  "ui": "tui",
+  "agentGuidance": true,
+  "globalDependencies": [".oxfmtrc.json", ".oxlintrc.json", ".prettierignore"],
+  "tasks": {
+    "build": {
+      "description": "Build the Electron package or the Cloudflare bundle.",
+      "dependsOn": ["^build"],
+      "outputs": [".vite/**", "out/**", "dist/**"]
+    },
+    "typecheck": {
+      "description": "Run TypeScript checks for the app.",
+      "dependsOn": ["^typecheck"]
+    },
+    "lint": {
+      "description": "Run lint and formatting checks."
+    },
+    "lint:fix": {
+      "description": "Fix lint and formatting issues."
+    },
+    "dev": {
+      "description": "Start the local development server.",
+      "cache": false,
+      "persistent": true
+    },
+    "clean": {
+      "description": "Remove build output.",
+      "cache": false
+    }
+  }
+}
