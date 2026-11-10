@@ -8,7 +8,7 @@ that manages its child profiles.
 | Workspace    | Package      | Description                                                                               |
 | ------------ | ------------ | ----------------------------------------------------------------------------------------- |
 | `apps/kite`  | `kite`       | Electron launcher for the child device. See [`apps/kite/README.md`](apps/kite/README.md). |
-| `apps/admin` | `kite-admin` | Cloudflare Workers + Vite control plane that will publish profiles for remote sync.       |
+| `apps/admin` | `kite-admin` | Cloudflare Workers + Vite panel that publishes the profile consumed by remote sync.       |
 
 Shared code can live under `packages/*` when both apps need it.
 

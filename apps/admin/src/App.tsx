@@ -1,34 +1,57 @@
-import { useEffect, useState } from 'react';
+import {
+  AlertTriangle,
+  CircleCheck,
+  LoaderCircle,
+  RefreshCw,
+  Save,
+} from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
+import { fetchProfile, saveProfile } from './api';
+import { AppsSection } from './components/AppsSection';
+import { FeaturesSection } from './components/FeaturesSection';
+import { KiteMark } from './components/KiteMark';
+import { ProfileSection } from './components/ProfileSection';
+import { PublishPanel } from './components/PublishPanel';
+import { Button } from './components/ui';
+import { WebsitesSection } from './components/WebsitesSection';
+import { buildPreview, editorFromDocument, editorToDraft } from './editor';
+import type { EditorState } from './editor';
+import { validateProfileDraft } from '../shared/profile';
+import type { ProfileDocument } from '../shared/profile';
 
-type HealthState = 'checking' | 'online' | 'offline';
-
-interface HealthPayload {
-  ok: boolean;
-  service: string;
+function describeError(cause: unknown, fallback: string): string {
+  return cause instanceof Error && cause.message ? cause.message : fallback;
 }
 
 export default function App() {
-  const [health, setHealth] = useState<HealthState>('checking');
+  const [saved, setSaved] = useState<ProfileDocument | null>(null);
+  const [editor, setEditor] = useState<EditorState | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
 
-    fetch('/api/health')
-      .then(async (response) => {
-        if (!response.ok) {
-          throw new Error(`HTTP ${response.status}`);
-        }
-
-        return (await response.json()) as HealthPayload;
-      })
-      .then((payload) => {
+    fetchProfile()
+      .then(({ profile }) => {
         if (!cancelled) {
-          setHealth(payload.ok ? 'online' : 'offline');
+          setSaved(profile);
+          setEditor(editorFromDocument(profile));
         }
       })
-      .catch(() => {
+      .catch((cause: unknown) => {
         if (!cancelled) {
-          setHealth('offline');
+          setLoadError(
+            describeError(cause, 'No se pudo cargar el perfil publicado.'),
+          );
+        }
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setLoading(false);
         }
       });
 
@@ -37,54 +60,224 @@ export default function App() {
     };
   }, []);
 
-  const statusLabel =
-    health === 'checking'
-      ? 'Comprobando…'
-      : health === 'online'
-        ? 'API conectada'
-        : 'API no disponible';
+  const baseline = useMemo(() => editorFromDocument(saved), [saved]);
+
+  const dirty = useMemo(
+    () =>
+      editor !== null && JSON.stringify(editor) !== JSON.stringify(baseline),
+    [editor, baseline],
+  );
+
+  const preview = useMemo(
+    () =>
+      editor ? buildPreview(editor, saved?.revision ?? 'pendiente') : null,
+    [editor, saved?.revision],
+  );
+
+  const syncUrl = useMemo(
+    () => new URL('/api/sync', window.location.origin).toString(),
+    [],
+  );
+
+  const updateEditor = (patch: Partial<EditorState>) => {
+    setEditor((current) => (current ? { ...current, ...patch } : current));
+    setSaveError(null);
+    setNotice(null);
+  };
+
+  const handleSave = async () => {
+    if (!editor || saving) {
+      return;
+    }
+
+    setSaving(true);
+    setSaveError(null);
+    setNotice(null);
+
+    try {
+      const profile = await saveProfile(
+        validateProfileDraft(editorToDraft(editor)),
+      );
+
+      setSaved(profile);
+      setEditor(editorFromDocument(profile));
+      setNotice(
+        'Perfil publicado. Los dispositivos lo aplicarán en la próxima sincronización.',
+      );
+    } catch (cause) {
+      setSaveError(describeError(cause, 'No se pudo guardar el perfil.'));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const status = loading
+    ? {
+        label: 'Cargando…',
+        className: 'bg-sky',
+        icon: <LoaderCircle className="h-3.5 w-3.5 animate-spin" />,
+      }
+    : saving
+      ? {
+          label: 'Guardando…',
+          className: 'bg-marigold',
+          icon: <LoaderCircle className="h-3.5 w-3.5 animate-spin" />,
+        }
+      : loadError || saveError
+        ? {
+            label: 'Error',
+            className: 'bg-coral text-white',
+            icon: <AlertTriangle className="h-3.5 w-3.5" />,
+          }
+        : dirty
+          ? {
+              label: 'Cambios sin guardar',
+              className: 'bg-marigold',
+              icon: <AlertTriangle className="h-3.5 w-3.5" />,
+            }
+          : saved
+            ? {
+                label: 'Perfil publicado',
+                className: 'bg-leaf text-paper',
+                icon: <CircleCheck className="h-3.5 w-3.5" />,
+              }
+            : {
+                label: 'Sin publicar',
+                className: 'bg-sky',
+                icon: <AlertTriangle className="h-3.5 w-3.5" />,
+              };
 
   return (
-    <main className="grid min-h-screen place-items-center bg-slate-950 px-6 text-slate-100">
-      <section className="w-full max-w-2xl rounded-3xl border border-slate-800 bg-slate-900/70 p-8 shadow-2xl shadow-black/40">
-        <p className="text-sm font-semibold tracking-[0.3em] text-cyan-300 uppercase">
-          Kite Admin
-        </p>
-        <h1 className="mt-3 text-4xl font-black tracking-tight">
-          Administración de perfiles
-        </h1>
-        <p className="mt-4 text-lg text-slate-300">
-          Panel para publicar los perfiles que consumen los clientes de Kite.
-        </p>
-
-        <dl className="mt-8 grid gap-4 sm:grid-cols-2">
-          <div className="rounded-2xl border border-slate-800 bg-slate-950/60 p-4">
-            <dt className="text-sm text-slate-400">Estado del servicio</dt>
-            <dd className="mt-1 flex items-center gap-2 text-lg font-bold">
-              <span
-                className={`h-2.5 w-2.5 rounded-full ${
-                  health === 'online'
-                    ? 'bg-emerald-400'
-                    : health === 'offline'
-                      ? 'bg-rose-400'
-                      : 'animate-pulse bg-amber-300'
-                }`}
-              />
-              {statusLabel}
-            </dd>
+    <div className="min-h-screen">
+      <header className="sticky top-0 z-30 border-b-4 border-ink bg-paper/95 backdrop-blur">
+        <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-3 px-4 py-4 sm:px-6">
+          <div className="flex min-w-0 items-center gap-3">
+            <KiteMark className="h-12 w-12 shrink-0" />
+            <div className="min-w-0">
+              <p className="text-[0.65rem] font-black tracking-[0.28em] text-ink-soft uppercase">
+                Kite Admin
+              </p>
+              <h1 className="truncate text-2xl leading-none font-black tracking-tight sm:text-3xl">
+                Perfil del dispositivo
+              </h1>
+            </div>
           </div>
 
-          <div className="rounded-2xl border border-slate-800 bg-slate-950/60 p-4">
-            <dt className="text-sm text-slate-400">Versión del panel</dt>
-            <dd className="mt-1 text-lg font-bold">0.0.0</dd>
+          <div className="flex flex-wrap items-center gap-2">
+            <span
+              className={`inline-flex items-center gap-1.5 rounded-full border-2 border-ink px-3 py-1.5 text-xs font-black ${status.className}`}
+            >
+              {status.icon}
+              {status.label}
+            </span>
+            <Button disabled={!dirty || saving || loading} onClick={handleSave}>
+              <Save className="h-4 w-4" />
+              {saving ? 'Guardando…' : 'Guardar y publicar'}
+            </Button>
           </div>
-        </dl>
+        </div>
+      </header>
 
-        <p className="mt-8 rounded-2xl border border-dashed border-slate-700 p-4 text-sm text-slate-400">
-          El panel está vacío por ahora. Los formularios y la API de perfiles se
-          añadirán en la siguiente iteración.
+      <main className="mx-auto w-full max-w-7xl px-4 py-6 sm:px-6 sm:py-8">
+        {loading ? (
+          <div className="grid min-h-[50vh] place-items-center">
+            <div className="flex items-center gap-3 rounded-[2rem] border-4 border-ink bg-paper px-6 py-5 shadow-kite">
+              <LoaderCircle className="h-6 w-6 animate-spin" />
+              <p className="text-lg font-black">Cargando el perfil…</p>
+            </div>
+          </div>
+        ) : loadError ? (
+          <div className="mx-auto max-w-xl rounded-[2rem] border-4 border-ink bg-paper p-6 shadow-kite">
+            <div className="flex items-start gap-3">
+              <AlertTriangle className="mt-0.5 h-6 w-6 shrink-0 text-coral" />
+              <div>
+                <h2 className="text-2xl font-black">No se pudo cargar</h2>
+                <p className="mt-2 font-semibold text-ink-soft">{loadError}</p>
+              </div>
+            </div>
+            <Button
+              className="mt-5"
+              onClick={() => window.location.reload()}
+              variant="secondary"
+            >
+              <RefreshCw className="h-4 w-4" />
+              Reintentar
+            </Button>
+          </div>
+        ) : editor ? (
+          <>
+            {saveError ? (
+              <div
+                className="mb-5 flex items-start gap-3 rounded-2xl border-2 border-ink bg-coral p-4 text-white shadow-kite-sm"
+                role="alert"
+              >
+                <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0" />
+                <p className="font-bold">
+                  No se pudo guardar el perfil: {saveError}
+                </p>
+              </div>
+            ) : null}
+
+            {notice ? (
+              <div
+                className="mb-5 flex items-start gap-3 rounded-2xl border-2 border-ink bg-leaf p-4 text-paper shadow-kite-sm"
+                role="status"
+              >
+                <CircleCheck className="mt-0.5 h-5 w-5 shrink-0" />
+                <p className="font-bold">{notice}</p>
+              </div>
+            ) : null}
+
+            <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_380px] lg:items-start">
+              <div className="flex min-w-0 flex-col gap-6">
+                <ProfileSection
+                  childName={editor.childName}
+                  onChange={updateEditor}
+                  revision={saved?.revision ?? null}
+                  updatedAt={saved?.updatedAt ?? null}
+                  volumeCap={editor.volumeCap}
+                />
+
+                <WebsitesSection
+                  onChange={(allowedOrigins) =>
+                    updateEditor({ allowedOrigins })
+                  }
+                  origins={editor.allowedOrigins}
+                />
+
+                <AppsSection
+                  apps={editor.allowedApps}
+                  onChange={(allowedApps) => updateEditor({ allowedApps })}
+                />
+
+                <FeaturesSection
+                  onChange={(featuresText) => updateEditor({ featuresText })}
+                  text={editor.featuresText}
+                />
+              </div>
+
+              <aside className="flex flex-col gap-6 lg:sticky lg:top-28">
+                <PublishPanel
+                  dirty={dirty}
+                  onSave={handleSave}
+                  preview={preview}
+                  saved={saved}
+                  saving={saving}
+                  syncUrl={syncUrl}
+                />
+              </aside>
+            </div>
+          </>
+        ) : null}
+      </main>
+
+      <footer className="mx-auto w-full max-w-7xl px-4 pb-8 sm:px-6">
+        <p className="rounded-2xl border-2 border-dashed border-ink/20 bg-white/40 p-4 text-xs font-semibold text-ink-soft">
+          Este panel todavía no tiene autenticación. Cualquiera con acceso a la
+          URL puede cambiar el perfil, así que no lo publiques en Internet hasta
+          añadirla.
         </p>
-      </section>
-    </main>
+      </footer>
+    </div>
   );
 }

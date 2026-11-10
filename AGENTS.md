@@ -4,8 +4,8 @@
 
 - `apps/kite` — the Electron kiosk launcher used on the child device. It has its
   own AGENTS.md with UI rules specific to the renderer.
-- `apps/admin` — the Cloudflare Workers + Vite control plane that will publish
-  the child profiles consumed by Kite's remote configuration sync.
+- `apps/admin` — the Cloudflare Workers + Vite panel that stores one child
+  profile in Workers KV and publishes it for Kite's remote configuration sync.
 - `packages/*` — shared TypeScript packages, when code needs to be reused by
   both apps.
 
@@ -33,6 +33,14 @@
 
 - `apps/admin` uses the Cloudflare Vite plugin with a Worker entry in
   `worker/index.ts` and static assets in `src/`.
+- Profile types and validation live in `apps/admin/shared/profile.ts`. Keep them
+  aligned with `apps/kite/docs/REMOTE-CONFIG.md`; the admin additionally requires
+  Linux and Windows paths for every app.
+- The published profile is stored under the `profile` key of the `PROFILE` KV
+  namespace. The checked-in namespace id is a local-development placeholder;
+  replace it before deploying.
+- Authentication is not implemented yet. Never expose the admin panel publicly
+  until `/api/profile` is protected.
 - Configure bindings in `apps/admin/wrangler.jsonc`. Do not edit the generated
   `dist/wrangler.json`.
 - Regenerate worker types with `npm run cf-typegen --workspace=kite-admin`
