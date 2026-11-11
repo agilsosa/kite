@@ -391,10 +391,10 @@ export function registerIpcHandlers(context: IpcContext) {
     return checkForUpdates();
   });
 
-  ipcMain.handle(IPC.updateInstall, (event) => {
+  ipcMain.handle(IPC.updateInstall, async (event) => {
     assertMainWindowSender(event);
     requireParent();
-    installUpdate();
+    await installUpdate();
   });
 
   ipcMain.handle(IPC.updateOpenRelease, async (event) => {

@@ -1,0 +1,295 @@
+#!/bin/sh
+# Kite's Linux update helper.
+#
+# The Kite package installs this file as /usr/lib/kite/kite-update, owned by
+# root. Kite invokes it through pkexec only after a parent approves the update
+# in the adult settings. It accepts no caller-supplied repository, URL, path, or
+# package: everything is fixed below, so a local process cannot turn it into a
+# generic root package installer.
+#
+# It resolves the latest published GitHub release, downloads the matching
+# Debian or RPM package, verifies its SHA-256 against SHA256SUMS published with
+# that release, checks the package metadata, installs it, and verifies the
+# installed version. See apps/kite/docs/UPDATES.md.
+
+set -eu
+
+REPO_OWNER='agilsosa'
+REPO_NAME='kite'
+PACKAGE_NAME='kite'
+RELEASES_URL="https://github.com/${REPO_OWNER}/${REPO_NAME}/releases"
+
+DRY_RUN=0
+
+for argument in "$@"; do
+  case "$argument" in
+    --dry-run)
+      DRY_RUN=1
+      ;;
+    *)
+      printf 'kite-update: argumento no admitido: %s\n' "$argument" >&2
+      exit 2
+      ;;
+  esac
+done
+
+log() {
+  printf 'kite-update: %s\n' "$*" >&2
+}
+
+fail() {
+  log "$*"
+  exit 1
+}
+
+if [ "$DRY_RUN" -eq 0 ] && [ "$(id -u)" -ne 0 ]; then
+  fail 'El actualizador debe ejecutarse como root (pkexec /usr/lib/kite/kite-update).'
+fi
+
+if command -v dpkg-query >/dev/null 2>&1 && command -v apt-get >/dev/null 2>&1; then
+  PACKAGE_MANAGER='deb'
+elif command -v rpm >/dev/null 2>&1 && command -v dnf >/dev/null 2>&1; then
+  PACKAGE_MANAGER='rpm'
+else
+  fail 'No se encontró un gestor de paquetes compatible (apt o dnf).'
+fi
+
+if ! command -v curl >/dev/null 2>&1; then
+  fail 'Falta curl, necesario para descargar la actualización.'
+fi
+
+case "$PACKAGE_MANAGER" in
+  deb)
+    installed_version="$(dpkg-query -W -f='${Version}' "$PACKAGE_NAME" 2>/dev/null || true)"
+    ;;
+  rpm)
+    installed_version="$(rpm -q --qf '%{VERSION}' "$PACKAGE_NAME" 2>/dev/null || true)"
+    ;;
+esac
+
+# Kite publishes plain `major.minor.patch` versions, but Debian may add an
+# epoch or revision if an administrator rebuilt the package. dpkg understands
+# those, so keep them. `rpm -q` prints "package ... is not installed" on stdout
+# when the package is missing, so discard anything non-numeric there.
+case "$PACKAGE_MANAGER" in
+  rpm)
+    case "$installed_version" in
+      '' | *[!0-9.]*)
+        installed_version=''
+        ;;
+    esac
+    ;;
+esac
+
+final_url="$(
+  curl -fsSL \
+    --proto '=https' \
+    --tlsv1.2 \
+    --max-redirs 5 \
+    --connect-timeout 20 \
+    --max-time 60 \
+    -o /dev/null \
+    -w '%{url_effective}' \
+    "${RELEASES_URL}/latest"
+)" || fail 'No se pudo consultar la última versión en GitHub. Revisa la conexión.'
+
+case "$final_url" in
+  "${RELEASES_URL}/tag/v"*)
+    latest_version="${final_url##*/tag/v}"
+    ;;
+  *)
+    fail 'GitHub no devolvió una versión publicada válida.'
+    ;;
+esac
+
+# Exactly three numeric components, like 1.0.6. This is also the tag format the
+# release workflow enforces.
+case "$latest_version" in
+  '' | *[!0-9.]* | .* | *. | *..*)
+    fail "La versión publicada no es válida: ${latest_version}"
+    ;;
+esac
+
+old_ifs="$IFS"
+IFS='.'
+# shellcheck disable=SC2086
+set -- $latest_version
+IFS="$old_ifs"
+
+if [ "$#" -ne 3 ]; then
+  fail "La versión publicada no es válida: ${latest_version}"
+fi
+
+is_newer() {
+  candidate="$1"
+  current="$2"
+
+  if [ -z "$current" ]; then
+    return 0
+  fi
+
+  if [ "$candidate" = "$current" ]; then
+    return 1
+  fi
+
+  case "$PACKAGE_MANAGER" in
+    deb)
+      dpkg --compare-versions "$candidate" gt "$current"
+      ;;
+    rpm)
+      highest="$(printf '%s\n%s\n' "$current" "$candidate" | sort -V | tail -n 1)"
+      [ "$highest" = "$candidate" ]
+      ;;
+  esac
+}
+
+if ! is_newer "$latest_version" "$installed_version"; then
+  printf 'KITE_UPDATE_CURRENT installed=%s latest=%s\n' \
+    "${installed_version:-none}" "$latest_version"
+  exit 0
+fi
+
+case "$PACKAGE_MANAGER" in
+  deb)
+    architecture="$(dpkg --print-architecture)"
+    case "$architecture" in
+      amd64 | arm64) ;;
+      *)
+        fail "No hay paquetes publicados para la arquitectura ${architecture}."
+        ;;
+    esac
+    asset_name="kite_${latest_version}_${architecture}.deb"
+    ;;
+  rpm)
+    architecture="$(uname -m)"
+    case "$architecture" in
+      x86_64 | aarch64) ;;
+      *)
+        fail "No hay paquetes publicados para la arquitectura ${architecture}."
+        ;;
+    esac
+    asset_name="kite-${latest_version}-1.${architecture}.rpm"
+    ;;
+esac
+
+if [ "$DRY_RUN" -eq 1 ]; then
+  workdir="$(mktemp -d "${TMPDIR:-/tmp}/kite-update.XXXXXX")"
+else
+  case "$PACKAGE_MANAGER" in
+    deb)
+      # apt verifies local packages as the _apt user, so this directory must be
+      # readable by it. /var/cache/apt/archives is the conventional location.
+      workdir="$(mktemp -d /var/cache/apt/archives/kite-update.XXXXXX)"
+      chmod 0755 "$workdir"
+      ;;
+    rpm)
+      workdir="$(mktemp -d /var/tmp/kite-update.XXXXXX)"
+      ;;
+  esac
+fi
+
+cleanup() {
+  rm -rf "$workdir"
+}
+trap cleanup EXIT HUP INT TERM
+
+download() {
+  url="$1"
+  destination="$2"
+
+  curl -fsSL \
+    --proto '=https' \
+    --tlsv1.2 \
+    --max-redirs 5 \
+    --connect-timeout 20 \
+    --max-time 600 \
+    --retry 2 \
+    --retry-delay 2 \
+    -o "$destination" \
+    "$url"
+}
+
+checksums_url="${RELEASES_URL}/download/v${latest_version}/SHA256SUMS"
+asset_url="${RELEASES_URL}/download/v${latest_version}/${asset_name}"
+
+download "$checksums_url" "$workdir/SHA256SUMS" ||
+  fail 'No se encontró la lista de comprobación de la versión publicada.'
+
+expected_checksum="$(
+  awk -v name="$asset_name" '$2 == name || $2 == "*" name { print $1; exit }' \
+    "$workdir/SHA256SUMS"
+)"
+
+case "$expected_checksum" in
+  '' | *[!0-9a-f]*)
+    fail 'La lista de comprobación no incluye el paquete esperado.'
+    ;;
+esac
+
+if [ "${#expected_checksum}" -ne 64 ]; then
+  fail 'La suma de comprobación publicada no es válida.'
+fi
+
+download "$asset_url" "$workdir/$asset_name" ||
+  fail 'No se pudo descargar el paquete de la actualización.'
+
+actual_checksum="$(sha256sum "$workdir/$asset_name" | cut -d ' ' -f 1)"
+
+if [ "$actual_checksum" != "$expected_checksum" ]; then
+  fail 'El paquete descargado no coincide con la suma de comprobación publicada.'
+fi
+
+case "$PACKAGE_MANAGER" in
+  deb)
+    package_field="$(dpkg-deb -f "$workdir/$asset_name" Package 2>/dev/null || true)"
+    version_field="$(dpkg-deb -f "$workdir/$asset_name" Version 2>/dev/null || true)"
+    if [ "$package_field" != "$PACKAGE_NAME" ] || [ "$version_field" != "$latest_version" ]; then
+      fail 'El paquete descargado no es la versión esperada de Kite.'
+    fi
+    ;;
+  rpm)
+    package_field="$(rpm -qp --qf '%{NAME} %{VERSION}' "$workdir/$asset_name" 2>/dev/null || true)"
+    if [ "$package_field" != "$PACKAGE_NAME $latest_version" ]; then
+      fail 'El paquete descargado no es la versión esperada de Kite.'
+    fi
+    ;;
+esac
+
+log "Paquete ${asset_name} verificado."
+
+if [ "$DRY_RUN" -eq 1 ]; then
+  printf 'KITE_UPDATE_AVAILABLE installed=%s latest=%s asset=%s\n' \
+    "${installed_version:-none}" "$latest_version" "$asset_name"
+  exit 0
+fi
+
+case "$PACKAGE_MANAGER" in
+  deb)
+    DEBIAN_FRONTEND=noninteractive apt-get install \
+      -y \
+      -o DPkg::Lock::Timeout=120 \
+      -o Dpkg::Options::=--force-confdef \
+      -o Dpkg::Options::=--force-confold \
+      "$workdir/$asset_name" </dev/null ||
+      fail 'apt no pudo instalar la actualización.'
+    ;;
+  rpm)
+    dnf install -y "$workdir/$asset_name" </dev/null ||
+      fail 'dnf no pudo instalar la actualización.'
+    ;;
+esac
+
+case "$PACKAGE_MANAGER" in
+  deb)
+    new_version="$(dpkg-query -W -f='${Version}' "$PACKAGE_NAME" 2>/dev/null || true)"
+    ;;
+  rpm)
+    new_version="$(rpm -q --qf '%{VERSION}' "$PACKAGE_NAME" 2>/dev/null || true)"
+    ;;
+esac
+
+if [ "$new_version" != "$latest_version" ]; then
+  fail "La instalación terminó pero la versión instalada es ${new_version:-desconocida}, no ${latest_version}."
+fi
+
+printf 'KITE_UPDATE_OK version=%s\n' "$new_version"

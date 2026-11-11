@@ -29,10 +29,12 @@ Outputs:
 - `out/kite-linux-x64/` — unpacked Linux app from `npm run package`
 
 On Linux, `npm run make:linux` builds the `.deb` and `.rpm` directly. Every
-GitHub Release includes both packages; Windows releases are produced by the
-`windows` job and Linux packages by the `linux` job. Use `npm run release:linux`
-to build and upload them manually. Linux updates are manual: install the
-package from a newer release.
+GitHub Release includes both packages and their `SHA256SUMS`. Windows releases
+are produced by the `windows` job and Linux packages by the `linux` job. Use
+`npm run release:linux` to build and upload them manually, then attach
+`SHA256SUMS` as described in
+[Publishing updates](UPDATES.md#publish-manually-on-linux). Packaged Linux
+installs update through the helper in [Linux updates](UPDATES.md#linux-updates).
 
 Sign and notarize production builds using your normal Electron code-signing
 setup. Unsigned builds will trigger Gatekeeper or SmartScreen warnings and may
@@ -118,9 +120,11 @@ Notes:
 Kite is developed and packaged on Linux, but Linux deployments vary widely.
 
 1. Install the `.deb`/`.rpm` from the latest GitHub Release, or unpack the
-   packaged app. Adult settings can check GitHub for a newer release and open
-   its page, but updates are manual: download and install the package from that
-   release.
+   packaged app. Adult settings can install later releases in place on Linux:
+   Kite checks for a newer release, and after a parent approves it, a root-owned
+   helper verifies the published `SHA256SUMS`, installs the package, and
+   restarts Kite. The first build that includes the helper must be installed
+   manually. See [Publishing updates](UPDATES.md#linux-updates).
 2. Create a dedicated non-admin kiosk user with an automatic graphical login.
 3. Start only Kite, using one of:
    - A minimal compositor/window manager such as `cage`, which maps only the

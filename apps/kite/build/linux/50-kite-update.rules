@@ -1,0 +1,16 @@
+// Allow the locally logged-in kiosk user to run Kite's update helper without a
+// password prompt. Kite already gates the action behind the parent PIN; this
+// rule only covers the fixed, root-owned helper, which accepts no caller
+// arguments and installs official Kite packages from GitHub after verifying
+// their SHA-256 checksums. Without this rule pkexec would ask for the admin
+// password, which the kiosk user does not have.
+polkit.addRule(function (action, subject) {
+  if (
+    action.id === 'org.freedesktop.policykit.exec' &&
+    action.lookup('program') === '/usr/lib/kite/kite-update' &&
+    subject.local &&
+    subject.active
+  ) {
+    return polkit.Result.YES;
+  }
+});

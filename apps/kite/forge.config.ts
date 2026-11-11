@@ -20,13 +20,19 @@ const easyVolumeRoot = path.dirname(
   require.resolve('easy-volume/package.json'),
 );
 
-// `electron-installer-redhat` does not expose `specTemplate` or
-// `desktopTemplate` in its Forge option types, but the underlying installer
-// accepts both. The desktop template drops an upstream duplicate
+const linuxScripts = {
+  postinstall: path.join(__dirname, 'build', 'linux', 'postinstall.sh'),
+  postremove: path.join(__dirname, 'build', 'linux', 'postremove.sh'),
+};
+
+// `electron-installer-redhat` does not expose `specTemplate`,
+// `desktopTemplate`, or `scripts` in its Forge option types, but the underlying
+// installer accepts all three. The desktop template drops an upstream duplicate
 // `StartupWMClass` line.
 const rpmOptions: MakerRpmConfigOptions & {
   specTemplate: string;
   desktopTemplate: string;
+  scripts: { post: string; postun: string };
 } = {
   name: 'kite',
   genericName: 'Lanzador infantil',
@@ -36,15 +42,25 @@ const rpmOptions: MakerRpmConfigOptions & {
   categories: ['Utility'],
   specTemplate: path.join(__dirname, 'build', 'rpm.spec.ejs'),
   desktopTemplate: path.join(__dirname, 'build', 'rpm.desktop.ejs'),
+  scripts: {
+    post: linuxScripts.postinstall,
+    postun: linuxScripts.postremove,
+  },
+  // The update helper needs curl and dpkg/rpm tooling, and pkexec to gain
+  // root from the kiosk session.
+  requires: ['curl', 'polkit'],
 };
 
 const config: ForgeConfig = {
   packagerConfig: {
     asar: true,
     // easy-volume's Windows helper has to run as a child process, and files
-    // inside an asar archive cannot be executed.
+    // inside an asar archive cannot be executed. The Linux directory holds the
+    // update helper and the polkit rule; the package post-install script moves
+    // them to their fixed system paths. It is inert on other platforms.
     extraResource: [
       path.join(easyVolumeRoot, 'dist', 'platforms', 'windows', 'volume.exe'),
+      path.join(__dirname, 'build', 'linux'),
     ],
   },
   rebuildConfig: {},
@@ -66,6 +82,14 @@ const config: ForgeConfig = {
         // recommended rather than required so Kite still installs on a plain
         // system and reports the feature as unavailable.
         recommends: ['alsa-utils', 'network-manager'],
+        // The Linux updater downloads the package with curl and verifies its
+        // TLS chain, then uses pkexec to gain root from the kiosk session.
+        // `pkexec` and `policykit-1` are the current and former Debian names.
+        depends: ['curl', 'ca-certificates', 'pkexec | policykit-1'],
+        scripts: {
+          postinst: linuxScripts.postinstall,
+          postrm: linuxScripts.postremove,
+        },
       },
     }),
   ],

@@ -127,6 +127,7 @@ export type UpdatePhase =
   | 'available'
   | 'downloading'
   | 'downloaded'
+  | 'installing'
   | 'up-to-date'
   | 'error';
 
@@ -135,10 +136,17 @@ export interface UpdateState {
   currentVersion: string;
   availableVersion: string | null;
   /**
-   * Release page for a Linux check-only update. Null on Windows and when no
-   * newer release is available.
+   * Release page for an update that Kite cannot install itself, such as an
+   * older Linux package without the update helper. Null when Kite can install
+   * the update, and when no newer release is available.
    */
   releaseUrl: string | null;
+  /**
+   * Whether this installation can install updates from the adult settings.
+   * True on packaged Windows builds and on Linux builds that ship the
+   * privileged update helper; false in development and on macOS.
+   */
+  canInstall: boolean;
   checkedAt: number | null;
   error: string | null;
 }

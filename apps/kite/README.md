@@ -62,8 +62,8 @@ installer for Windows plus `.deb` and `.rpm` packages for Linux.
   30-second lockout.
 - On Windows, checks GitHub Releases for updates, downloads them in the
   background, and installs only when a parent approves the restart from adult
-  settings. On Linux, checks for newer releases and links to the release page so
-  a parent can install the package manually. See
+  settings. On Linux, checks for newer releases and installs them through a
+  root-owned helper after the same parent approval, then restarts itself. See
   [Publishing updates](docs/UPDATES.md).
 - Lets a parent replace the whole child profile (name, volume cap, apps, and
   websites) with JSON from an HTTPS endpoint. The response may also include an
@@ -212,9 +212,10 @@ machine. A complete deployment also locks the operating system to Kite.
 - `easy-volume` uses `amixer` on Linux. Without it, the volume popover reports
   that the system volume cannot be changed.
 - Linux packages install to `/usr/lib/kite` and add a `kite` entry to the
-  application menu. Kite checks GitHub for a newer release and links to its
-  page, but it does not install updates itself: install the `.deb` or `.rpm`
-  from that release to update.
+  application menu. The package also installs a root-owned update helper and a
+  polkit rule, so adult settings can install a newer release after verifying
+  its published checksums and restart Kite. If the helper is missing (older
+  package), Kite links to the release page instead.
 - Some sites refuse to render inside a frame or require permissions Kite
   denies. Add only sites that work without camera, microphone, location, or
   notifications.

@@ -1,20 +1,31 @@
+import { execFile } from 'node:child_process';
+import { existsSync, statSync } from 'node:fs';
+import { promisify } from 'node:util';
 import { app, autoUpdater, net, shell } from 'electron';
 import type { UpdateState } from '../shared/types';
 import { GITHUB_REPOSITORY, UPDATE_FEED_ORIGIN } from '../shared/release';
+
+const execFileAsync = promisify(execFile);
 
 const INITIAL_CHECK_DELAY_MS = 60 * 1000;
 const FIRST_RUN_CHECK_DELAY_MS = 10 * 60 * 1000;
 const CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000;
 const CHECK_TIMEOUT_MS = 5 * 60 * 1000;
 const RELEASE_REQUEST_TIMEOUT_MS = 30 * 1000;
-const LATEST_RELEASE_API = `https://api.github.com/repos/${GITHUB_REPOSITORY.owner}/${GITHUB_REPOSITORY.name}/releases/latest`;
-const RELEASE_PAGE_PREFIX = `/${GITHUB_REPOSITORY.owner}/${GITHUB_REPOSITORY.name}/releases/`;
+const INSTALL_TIMEOUT_MS = 15 * 60 * 1000;
+const MAX_INSTALL_OUTPUT = 4 * 1024 * 1024;
+
+/** Installed root-owned by the Debian/RPM package post-install script. */
+const LINUX_HELPER_PATH = '/usr/lib/kite/kite-update';
+const PKEXEC_PATH = '/usr/bin/pkexec';
+const LATEST_RELEASE_URL = `https://github.com/${GITHUB_REPOSITORY.owner}/${GITHUB_REPOSITORY.name}/releases/latest`;
 
 let state: UpdateState = {
   phase: 'disabled',
   currentVersion: app.getVersion(),
   availableVersion: null,
   releaseUrl: null,
+  canInstall: false,
   checkedAt: null,
   error: null,
 };
@@ -31,14 +42,37 @@ function canInstallUpdates(): boolean {
 }
 
 /**
- * Windows checks through Electron's updater. Linux has no updater backend, so
- * it asks the GitHub Releases API whether a newer version exists.
+ * Windows checks through Electron's updater. Linux follows the GitHub
+ * `releases/latest` redirect to learn whether a newer version exists.
  */
 function canCheckForUpdates(): boolean {
   return (
     app.isPackaged &&
     (process.platform === 'win32' || process.platform === 'linux')
   );
+}
+
+/**
+ * Linux installs go through the root-owned update helper, invoked with pkexec.
+ * The helper must exist, be owned by root, not be writable by anyone else, and
+ * pkexec must be available. Development builds never take this path.
+ */
+function canInstallLinuxUpdates(): boolean {
+  if (!app.isPackaged || process.platform !== 'linux') {
+    return false;
+  }
+
+  try {
+    const stats = statSync(LINUX_HELPER_PATH);
+
+    if (stats.uid !== 0 || (stats.mode & 0o022) !== 0) {
+      return false;
+    }
+  } catch {
+    return false;
+  }
+
+  return existsSync(PKEXEC_PATH);
 }
 
 function setState(patch: Partial<UpdateState>): void {
@@ -125,51 +159,41 @@ interface LatestRelease {
 }
 
 /**
- * Read the fields Kite needs from a GitHub `releases/latest` response. The
- * release page URL is validated so {@link openReleasePage} only ever opens a
- * Kite release on github.com.
+ * Read the version and page URL from the final URL of a `releases/latest`
+ * redirect. Following the redirect instead of the GitHub API avoids the
+ * unauthenticated API rate limit, which a fleet behind one address can exhaust.
+ * The URL is rebuilt from the validated parts so {@link openReleasePage} only
+ * ever opens a Kite release on github.com.
  */
-function parseLatestRelease(value: unknown): LatestRelease | null {
-  if (typeof value !== 'object' || value === null) {
+function parseReleaseUrl(value: string): LatestRelease | null {
+  let page: URL;
+
+  try {
+    page = new URL(value);
+  } catch {
     return null;
   }
 
-  const record = value as Record<string, unknown>;
-
-  if (record.draft === true || record.prerelease === true) {
+  if (page.protocol !== 'https:' || page.hostname !== 'github.com') {
     return null;
   }
 
-  if (
-    typeof record.tag_name !== 'string' ||
-    typeof record.html_url !== 'string'
-  ) {
+  const prefix = `/${GITHUB_REPOSITORY.owner}/${GITHUB_REPOSITORY.name}/releases/tag/v`;
+
+  if (!page.pathname.startsWith(prefix)) {
     return null;
   }
 
-  const version = record.tag_name.trim().replace(/^v/u, '');
+  const version = page.pathname.slice(prefix.length);
 
   if (!parseVersion(version)) {
     return null;
   }
 
-  let page: URL;
-
-  try {
-    page = new URL(record.html_url);
-  } catch {
-    return null;
-  }
-
-  if (
-    page.protocol !== 'https:' ||
-    page.hostname !== 'github.com' ||
-    !page.pathname.startsWith(RELEASE_PAGE_PREFIX)
-  ) {
-    return null;
-  }
-
-  return { version, pageUrl: page.toString() };
+  return {
+    version,
+    pageUrl: `https://github.com${page.pathname}`,
+  };
 }
 
 function linuxCheckError(cause: unknown): string {
@@ -193,27 +217,16 @@ function linuxCheckError(cause: unknown): string {
 }
 
 /**
- * Linux check-only path: ask GitHub for the latest published release, compare
- * it with the installed version, and expose the release page. Kite never
- * downloads or installs Linux packages by itself.
+ * Linux check path: follow the `releases/latest` redirect, compare the version
+ * with the installed one, and expose the release page. Kite never installs
+ * anything until a parent approves the update.
  */
 async function checkLinuxRelease(): Promise<void> {
   try {
-    const response = await net.fetch(LATEST_RELEASE_API, {
-      headers: {
-        Accept: 'application/vnd.github+json',
-        'X-GitHub-Api-Version': '2022-11-28',
-        'User-Agent': `kite/${app.getVersion()}`,
-      },
+    const response = await net.fetch(LATEST_RELEASE_URL, {
       cache: 'no-store',
       signal: AbortSignal.timeout(RELEASE_REQUEST_TIMEOUT_MS),
     });
-
-    if (response.status === 403 || response.status === 429) {
-      throw new Error(
-        'GitHub limitó temporalmente las comprobaciones. Inténtalo más tarde.',
-      );
-    }
 
     if (response.status === 404) {
       throw new Error('No se encontró ninguna versión publicada de Kite.');
@@ -225,7 +238,7 @@ async function checkLinuxRelease(): Promise<void> {
       );
     }
 
-    const release = parseLatestRelease(await response.json());
+    const release = parseReleaseUrl(response.url);
 
     if (!release) {
       throw new Error(
@@ -244,7 +257,7 @@ async function checkLinuxRelease(): Promise<void> {
     setState({
       phase: newer ? 'available' : 'up-to-date',
       availableVersion: newer ? release.version : null,
-      releaseUrl: newer ? release.pageUrl : null,
+      releaseUrl: newer && !canInstallLinuxUpdates() ? release.pageUrl : null,
       checkedAt: Date.now(),
       error: null,
     });
@@ -276,8 +289,12 @@ export function checkForUpdates(): UpdateState {
   }
 
   // A second check would download the same release again. Do not interrupt an
-  // in-flight check or a download that is already ready to install.
-  if (checkInFlight || state.phase === 'downloaded') {
+  // in-flight check, an install, or a download that is already ready to install.
+  if (
+    checkInFlight ||
+    state.phase === 'downloaded' ||
+    state.phase === 'installing'
+  ) {
     return getUpdateState();
   }
 
@@ -323,15 +340,129 @@ export function checkForUpdates(): UpdateState {
 }
 
 /**
- * Restart Kite and apply the downloaded update. The main process must already
- * consider this a parent-approved shutdown, otherwise the kiosk window's close
- * handler prevents `quitAndInstall()` from finishing.
+ * Turn an execFile failure from pkexec or the helper into a parent-readable
+ * message. The helper prefixes its own errors with `kite-update:`; the UI does
+ * not need that prefix.
  */
-export function installUpdate(): void {
-  if (process.platform === 'linux') {
+function linuxInstallError(cause: unknown): string {
+  const failure = cause as {
+    code?: unknown;
+    killed?: unknown;
+    message?: unknown;
+    stderr?: unknown;
+  };
+
+  if (failure?.killed) {
+    return 'La instalación tardó demasiado y se canceló. Inténtalo de nuevo.';
+  }
+
+  if (failure?.code === 126) {
+    return 'No se autorizó la instalación de la actualización.';
+  }
+
+  if (failure?.code === 127) {
+    return 'El sistema no autorizó al asistente de actualización.';
+  }
+
+  if (typeof failure?.stderr === 'string') {
+    const detail = failure.stderr
+      .trim()
+      .split('\n')
+      .map((line) => line.trim())
+      .filter(Boolean)
+      .at(-1);
+
+    if (detail) {
+      return `No se pudo instalar la actualización: ${detail.replace(/^kite-update:\s*/u, '')}`;
+    }
+  }
+
+  if (typeof failure?.message === 'string' && failure.message) {
+    return `No se pudo instalar la actualización: ${failure.message}`;
+  }
+
+  return 'No se pudo instalar la actualización.';
+}
+
+/**
+ * Linux path: pkexec runs the root-owned helper, which downloads, verifies, and
+ * installs the package. The parent session already approved the action before
+ * the IPC handler calls this. Kite relaunches itself into the new version.
+ */
+async function installLinuxUpdate(): Promise<void> {
+  if (!canInstallLinuxUpdates()) {
     throw new Error(
-      'En Linux, descarga el paquete desde la página de la versión e instálalo manualmente.',
+      'Esta instalación de Kite no incluye el asistente de actualizaciones. Descarga el paquete desde la página de la versión.',
     );
+  }
+
+  if (state.phase !== 'available') {
+    throw new Error(
+      'Todavía no hay una actualización disponible para instalar.',
+    );
+  }
+
+  setState({ phase: 'installing', error: null });
+
+  let installed = false;
+
+  try {
+    const result = await execFileAsync(PKEXEC_PATH, [LINUX_HELPER_PATH], {
+      encoding: 'utf8',
+      timeout: INSTALL_TIMEOUT_MS,
+      maxBuffer: MAX_INSTALL_OUTPUT,
+      windowsHide: true,
+    });
+
+    installed = /^KITE_UPDATE_OK\b/mu.test(result.stdout);
+
+    // The helper compares versions itself. If a release was withdrawn between
+    // the check and the install, it reports no installation and nothing needs
+    // to restart.
+    if (!installed && !/^KITE_UPDATE_CURRENT\b/mu.test(result.stdout)) {
+      throw new Error('El asistente no confirmó la instalación.');
+    }
+  } catch (cause) {
+    const message = linuxInstallError(cause);
+
+    setState({
+      phase: 'error',
+      checkedAt: Date.now(),
+      error: message,
+    });
+    throw new Error(message);
+  }
+
+  if (!installed) {
+    setState({
+      phase: 'up-to-date',
+      availableVersion: null,
+      releaseUrl: null,
+      checkedAt: Date.now(),
+      error: null,
+    });
+    return;
+  }
+
+  // The package replaced the running binary; start the installed version.
+  // `app.exit` skips the kiosk close handler. Relaunch is scheduled by Electron
+  // and runs after this process exits.
+  authorizeShutdown?.();
+  app.relaunch();
+  app.exit(0);
+}
+
+/**
+ * Restart Kite and apply the update. On Windows Electron has already
+ * downloaded it and `quitAndInstall()` applies it. On Linux the helper installs
+ * the package and Kite relaunches itself. The main process must already
+ * consider this a parent-approved shutdown, otherwise the kiosk window's close
+ * handler prevents the restart.
+ */
+export async function installUpdate(): Promise<void> {
+  if (process.platform === 'linux') {
+    await installLinuxUpdate();
+    return;
   }
 
   if (!canInstallUpdates()) {
@@ -349,8 +480,8 @@ export function installUpdate(): void {
 }
 
 /**
- * Open the release page recorded by the latest Linux check. The URL comes from
- * the GitHub API and is validated in {@link parseLatestRelease}.
+ * Open the release page recorded by the latest Linux check. The URL is
+ * reconstructed from the validated redirect in {@link parseReleaseUrl}.
  */
 export async function openReleasePage(): Promise<void> {
   if (!state.releaseUrl) {
@@ -375,17 +506,17 @@ export function initUpdater(options: UpdaterOptions): void {
 
   if (process.platform === 'linux') {
     if (app.isPackaged) {
-      setState({ phase: 'idle' });
+      setState({ phase: 'idle', canInstall: canInstallLinuxUpdates() });
       scheduleChecks();
     } else {
-      setState({ phase: 'disabled' });
+      setState({ phase: 'disabled', canInstall: false });
     }
 
     return;
   }
 
   if (!canInstallUpdates()) {
-    setState({ phase: 'disabled' });
+    setState({ phase: 'disabled', canInstall: false });
     return;
   }
 
@@ -448,7 +579,7 @@ export function initUpdater(options: UpdaterOptions): void {
     authorizeShutdown?.();
   });
 
-  setState({ phase: 'idle' });
+  setState({ phase: 'idle', canInstall: true });
   scheduleChecks();
 }
 

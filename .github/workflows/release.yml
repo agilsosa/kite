@@ -102,3 +102,18 @@ jobs:
         run: npx electron-forge release --from-make
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # Kite's Linux update helper downloads one of these packages and verifies
+      # it against this file before installing it as root.
+      - name: Publish the Linux checksums
+        working-directory: apps/kite
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          {
+            (cd out/make/deb/x64 && sha256sum *.deb)
+            (cd out/make/rpm/x64 && sha256sum *.rpm)
+          } > SHA256SUMS
+          cat SHA256SUMS
+          version="$(node -p "require('./package.json').version")"
+          gh release upload "v${version}" SHA256SUMS --clobber

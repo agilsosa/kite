@@ -14,6 +14,12 @@ function statusText(state: UpdateState): string {
     case 'checking':
       return 'Buscando actualizaciones…';
     case 'available':
+      if (state.canInstall) {
+        return state.availableVersion
+          ? `Hay una actualización disponible (v${state.availableVersion}). Puedes instalarla ahora; Kite se reiniciará al terminar.`
+          : 'Hay una actualización disponible. Puedes instalarla ahora; Kite se reiniciará al terminar.';
+      }
+
       return state.availableVersion
         ? `Hay una actualización disponible (v${state.availableVersion}). Descárgala desde la página de la versión e instálala manualmente.`
         : 'Hay una actualización disponible. Descárgala desde la página de la versión e instálala manualmente.';
@@ -21,10 +27,12 @@ function statusText(state: UpdateState): string {
       return 'Hay una actualización disponible. Descargando en segundo plano…';
     case 'downloaded':
       return 'Actualización descargada. Puedes instalarla cuando quieras.';
+    case 'installing':
+      return 'Instalando la actualización… Kite se reiniciará al terminar. No cierres la aplicación.';
     case 'up-to-date':
       return 'Kite está actualizado.';
     case 'error':
-      return 'No se pudo comprobar la actualización.';
+      return 'No se pudo comprobar o instalar la actualización.';
   }
 }
 
@@ -80,6 +88,7 @@ export function UpdatesSettings() {
       await window.api.update.install();
     } catch (cause) {
       setError(errorMessage(cause));
+    } finally {
       setInstalling(false);
     }
   };
@@ -95,17 +104,24 @@ export function UpdatesSettings() {
   };
 
   const busy =
-    state?.phase === 'checking' || state?.phase === 'downloading' || checking;
+    state?.phase === 'checking' ||
+    state?.phase === 'downloading' ||
+    state?.phase === 'installing' ||
+    checking;
   const supported = state !== null && state.phase !== 'disabled';
+  const canInstallAvailable =
+    state?.phase === 'available' && state.canInstall === true;
+  const showInstallDialog =
+    confirmingInstall && (state?.phase === 'downloaded' || canInstallAvailable);
 
   return (
     <section className="rounded-2xl border-2 border-ink/15 bg-white/40 p-4">
       <h3 className="text-lg font-black">Actualizaciones</h3>
       <p className="mt-1 max-w-xl text-sm font-semibold text-ink-soft">
-        En Windows, Kite descarga las actualizaciones en segundo plano y solo
-        las instala cuando tú lo autorizas; las aplicaciones abiertas desde Kite
-        se cerrarán durante la instalación. En Linux, Kite comprueba si hay una
-        versión nueva y te enlaza a la página de la versión para instalarla
+        Kite busca actualizaciones y solo las instala cuando tú lo autorizas.
+        Durante la instalación se cerrarán las aplicaciones abiertas desde Kite
+        y la aplicación se reiniciará. En instalaciones antiguas de Linux, Kite
+        te enlaza a la página de la versión para que instales el paquete
         manualmente.
       </p>
 
@@ -152,13 +168,21 @@ export function UpdatesSettings() {
           onClick={() => void check()}
           variant="secondary"
         >
-          {busy ? 'Comprobando…' : 'Buscar actualizaciones'}
+          {state?.phase === 'checking' || checking
+            ? 'Comprobando…'
+            : 'Buscar actualizaciones'}
         </Button>
 
         {state?.phase === 'available' ? (
-          <Button onClick={() => void openRelease()}>
-            Abrir página de la versión
-          </Button>
+          state.canInstall ? (
+            <Button onClick={() => setConfirmingInstall(true)}>
+              Instalar actualización
+            </Button>
+          ) : (
+            <Button onClick={() => void openRelease()}>
+              Abrir página de la versión
+            </Button>
+          )
         ) : null}
 
         {state?.phase === 'downloaded' && !confirmingInstall ? (
@@ -168,22 +192,25 @@ export function UpdatesSettings() {
         ) : null}
       </div>
 
-      {state?.phase === 'downloaded' && confirmingInstall ? (
+      {showInstallDialog && state ? (
         <div
           aria-label="Confirmar la instalación de la actualización"
           className="mt-4 rounded-2xl border-2 border-marigold bg-white/70 p-4"
           role="alertdialog"
         >
           <p className="font-black">
-            ¿Reiniciar Kite e instalar
+            {state.phase === 'available'
+              ? '¿Instalar'
+              : '¿Reiniciar Kite e instalar'}
             {state.availableVersion
               ? ` la versión ${state.availableVersion}`
               : ' la actualización'}
-            ?
+            {state.phase === 'available' ? ' y reiniciar Kite?' : '?'}
           </p>
           <p className="mt-1 text-sm font-semibold text-ink-soft">
-            Guarda cualquier trabajo abierto. Kite se cerrará, se actualizará y
-            volverá a abrirse.
+            {state.phase === 'available'
+              ? 'Kite descargará el paquete, comprobará su suma de verificación y lo instalará. Guarda cualquier trabajo abierto; Kite se cerrará y volverá a abrirse.'
+              : 'Guarda cualquier trabajo abierto. Kite se cerrará, se actualizará y volverá a abrirse.'}
           </p>
           <div className="mt-4 flex flex-wrap gap-3">
             <Button
@@ -194,7 +221,11 @@ export function UpdatesSettings() {
               Ahora no
             </Button>
             <Button disabled={installing} onClick={() => void install()}>
-              {installing ? 'Reiniciando…' : 'Reiniciar e instalar'}
+              {installing
+                ? 'Instalando…'
+                : state.phase === 'available'
+                  ? 'Instalar y reiniciar'
+                  : 'Reiniciar e instalar'}
             </Button>
           </div>
         </div>
