@@ -47,8 +47,9 @@ const rpmOptions: MakerRpmConfigOptions & {
     postun: linuxScripts.postremove,
   },
   // The update helper needs curl and dpkg/rpm tooling, and pkexec to gain
-  // root from the kiosk session.
-  requires: ['curl', 'polkit'],
+  // root from the kiosk session. wlrctl raises app windows on wlroots
+  // compositors (labwc, Sway) and wmctrl does the same on X11.
+  requires: ['curl', 'polkit', 'wmctrl', 'wlrctl'],
 };
 
 const config: ForgeConfig = {
@@ -85,7 +86,15 @@ const config: ForgeConfig = {
         // The Linux updater downloads the package with curl and verifies its
         // TLS chain, then uses pkexec to gain root from the kiosk session.
         // `pkexec` and `policykit-1` are the current and former Debian names.
-        depends: ['curl', 'ca-certificates', 'pkexec | policykit-1'],
+        // wlrctl raises app windows on wlroots compositors (labwc, Sway);
+        // wmctrl does the same on X11 sessions such as LXQt.
+        depends: [
+          'curl',
+          'ca-certificates',
+          'pkexec | policykit-1',
+          'wmctrl',
+          'wlrctl',
+        ],
         scripts: {
           postinst: linuxScripts.postinstall,
           postrm: linuxScripts.postremove,

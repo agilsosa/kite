@@ -134,6 +134,10 @@ Kite is developed and packaged on Linux, but Linux deployments vary widely.
 4. Install the system dependencies:
    - `alsa-utils` for volume (`amixer`).
    - NetworkManager for Wi-Fi (`nmcli`).
+   - `wlrctl` on wlroots Wayland compositors (labwc, Sway, Wayfire), so the
+     taskbar can raise an app that is already running.
+   - `wmctrl` on X11 sessions such as LXQt, for the same reason.
+     The `.deb` and `.rpm` declare these window helpers as dependencies.
 5. Disable virtual terminals, tty switching, and other sessions where possible.
    A user who can press `Ctrl+Alt+F2` can usually reach a login prompt unless
    the OS is configured otherwise.
@@ -163,6 +167,11 @@ Notes:
   always-on-top surface, so a native app can cover it. If the child must always
   be able to switch apps, run the app windowed or add compositor rules that keep
   it below the taskbar area.
+- Selecting a running app in the taskbar focuses its existing window instead of
+  launching a second copy. Kite records the window when it launches the app and
+  uses `wlrctl` on wlroots Wayland compositors or `wmctrl` on X11 to raise it.
+  If neither helper can find the window, Kite falls back to launching the app
+  again, which some apps treat as a request for a new window.
 - Restart and shut down use `systemctl reboot` and `systemctl poweroff`. The
   kiosk user must be allowed to run them (for example through a polkit rule);
   otherwise the command is refused by the OS.

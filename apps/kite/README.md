@@ -26,7 +26,8 @@ installer for Windows plus `.deb` and `.rpm` packages for Linux.
 - Draws its own taskbar along the bottom of the window. It lists every
   launched native app, the Files window, and open websites, highlights the
   focused one, shows the clock, and offers Restart and Shut down after an
-  in-app confirmation.
+  in-app confirmation. Selecting a running app raises its existing window
+  instead of starting another copy (`wlrctl` on Wayland, `wmctrl` on X11).
 - Keeps Kite behind the apps it launches, so a native app opens above the
   launcher. Switching back to Kite or to another app is done from the
   taskbar.

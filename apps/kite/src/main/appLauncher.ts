@@ -4,6 +4,12 @@ import { existsSync } from 'node:fs';
 import type { AllowedApp } from '../shared/types';
 import { getConfig } from './config';
 import {
+  focusLinuxWindow,
+  revealLinuxWindow,
+  snapshotLinuxWindows,
+  type LinuxWindowTarget,
+} from './linuxWindowActivation';
+import {
   focusSwayWindow,
   getFocusedSwayWindowIds,
   revealSwayWindow,
@@ -14,6 +20,13 @@ import { focusWindowsApp } from './windowActivation';
 const runningApps = new Map<string, Set<ChildProcess>>();
 /** Window ids reported by Sway, so an app can be raised instead of relaunched. */
 const swayWindowIds = new Map<string, number[]>();
+/** Wayland app id or X11 window id recorded for a launched app. */
+const linuxWindows = new Map<string, LinuxWindowTarget>();
+/**
+ * Pending window detection. A second click while the first launch is still
+ * opening its window waits for it instead of starting another copy.
+ */
+const linuxReveals = new Map<string, Promise<LinuxWindowTarget | null>>();
 
 function trackRunningApp(appEntry: AllowedApp, child: ChildProcess) {
   let processes = runningApps.get(appEntry.id);
@@ -37,6 +50,7 @@ function trackRunningApp(appEntry: AllowedApp, child: ChildProcess) {
     if (current.size === 0) {
       runningApps.delete(appEntry.id);
       swayWindowIds.delete(appEntry.id);
+      linuxWindows.delete(appEntry.id);
     }
   };
 
@@ -141,25 +155,79 @@ export async function launchAllowedApp(appId: string): Promise<void> {
       }
     }
 
-    /*
-     * Windows has no Electron API for focusing another process's window. Raise
-     * the existing window instead of launching a second copy.
-     */
     if (process.platform === 'win32') {
+      /*
+       * Windows has no Electron API for focusing another process's window.
+       * Raise the existing window instead of launching a second copy.
+       */
       await focusWindowsApp(appEntry.path);
       return;
+    }
+
+    if (process.platform === 'linux') {
+      const recorded = linuxWindows.get(appId);
+
+      if (recorded && (await focusLinuxWindow(recorded, appEntry.path))) {
+        return;
+      }
+
+      const pending = linuxReveals.get(appId);
+
+      if (pending) {
+        const revealed = await pending;
+
+        if (revealed && (await focusLinuxWindow(revealed, appEntry.path))) {
+          return;
+        }
+      }
+
+      // The app may have recreated its window after the launch snapshot.
+      if (await focusLinuxWindow(null, appEntry.path)) {
+        return;
+      }
     }
   }
 
   const knownWindows = await snapshotSwayWindows();
+  const knownLinuxWindows = knownWindows
+    ? null
+    : process.platform === 'linux'
+      ? await snapshotLinuxWindows()
+      : null;
   const child = await spawnApp(appEntry);
 
   trackRunningApp(appEntry, child);
 
-  void revealSwayWindow(knownWindows).then((windowId) => {
-    if (windowId !== null) {
-      const ids = swayWindowIds.get(appId) ?? [];
-      swayWindowIds.set(appId, [...ids, windowId]);
-    }
-  });
+  if (knownWindows) {
+    void revealSwayWindow(knownWindows).then((windowId) => {
+      if (windowId !== null) {
+        const ids = swayWindowIds.get(appId) ?? [];
+        swayWindowIds.set(appId, [...ids, windowId]);
+      }
+    });
+    return;
+  }
+
+  if (knownLinuxWindows) {
+    let reveal: Promise<LinuxWindowTarget | null>;
+    reveal = revealLinuxWindow(knownLinuxWindows, appEntry.path)
+      .then((window) => {
+        if (
+          window &&
+          runningApps.has(appId) &&
+          linuxReveals.get(appId) === reveal
+        ) {
+          linuxWindows.set(appId, window);
+        }
+
+        return window;
+      })
+      .finally(() => {
+        if (linuxReveals.get(appId) === reveal) {
+          linuxReveals.delete(appId);
+        }
+      });
+
+    linuxReveals.set(appId, reveal);
+  }
 }

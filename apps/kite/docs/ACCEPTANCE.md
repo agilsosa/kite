@@ -178,7 +178,8 @@ has no battery. Linux reads `/sys/class/power_supply`, Windows asks
 - [ ] The item is highlighted while that app has focus, and not while Kite has
       focus.
 - [ ] Selecting the item while the app is running switches to it instead of
-      starting a second copy, where the compositor allows it.
+      starting a second copy. On Linux this uses `wlrctl` on Wayland or
+      `wmctrl` on X11.
 - [ ] Closing the app removes its item and reveals Kite again.
 - [ ] An open website appears in the taskbar; selecting it raises its window.
 - [ ] Selecting the Kite button closes open website windows and shows the home
