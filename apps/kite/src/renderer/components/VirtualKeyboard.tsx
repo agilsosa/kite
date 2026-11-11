@@ -33,7 +33,7 @@ function KeyboardKey({
     <BaseButton
       aria-label={label}
       aria-pressed={active || undefined}
-      className={`flex h-12 min-w-0 items-center justify-center rounded-xl border-2 border-ink px-2 text-lg font-black shadow-[2px_2px_0_0_#173f35] transition active:translate-x-0.5 active:translate-y-0.5 active:shadow-none ${wide ? 'flex-[2]' : 'flex-1'} ${active ? 'bg-marigold' : 'bg-paper hover:bg-sky/50'}`}
+      className={`flex h-10 min-w-0 items-center justify-center rounded-lg border-2 border-ink px-1 text-base font-black shadow-[2px_2px_0_0_#173f35] transition active:translate-x-0.5 active:translate-y-0.5 active:shadow-none ${wide ? 'flex-[2]' : 'flex-1'} ${active ? 'bg-marigold' : 'bg-paper hover:bg-sky/50'}`}
       onClick={onPress}
       onPointerDown={(event) => event.preventDefault()}
       type="button"
@@ -111,15 +111,17 @@ export function VirtualKeyboard({
   return (
     <div
       aria-label="Teclado en pantalla"
-      className="fixed inset-x-0 bottom-0 z-[100] mx-auto flex w-full max-w-5xl flex-col gap-2 border-4 border-ink bg-paper/95 p-3 shadow-[0_-6px_0_0_#173f35] backdrop-blur-sm"
+      className="fixed inset-x-0 bottom-0 z-[100] flex w-full flex-col gap-1.5 border-4 border-ink bg-paper/95 px-2 py-1.5 shadow-[0_-6px_0_0_#173f35] backdrop-blur-sm"
       id="kite-keyboard"
       ref={containerRef}
       role="group"
     >
       <div className="flex items-center justify-between gap-3 px-1">
-        <p className="text-sm font-extrabold text-ink-soft">Teclado</p>
+        <p className="text-xs font-extrabold tracking-wide text-ink-soft uppercase">
+          Teclado
+        </p>
         <BaseButton
-          className="rounded-full border-2 border-ink bg-paper px-3 py-1 text-sm font-extrabold shadow-[2px_2px_0_0_#173f35]"
+          className="rounded-full border-2 border-ink bg-paper px-3 py-0.5 text-xs font-extrabold shadow-[2px_2px_0_0_#173f35]"
           onClick={() => {
             if (standalone) {
               void window.api.keyboard.hide();
@@ -138,7 +140,7 @@ export function VirtualKeyboard({
       </div>
 
       {LETTER_ROWS.map((row, rowIndex) => (
-        <div className="flex gap-1.5" key={row}>
+        <div className="flex gap-1" key={row}>
           {rowIndex === 3 ? (
             <KeyboardKey
               active={shift}
@@ -172,7 +174,7 @@ export function VirtualKeyboard({
         </div>
       ))}
 
-      <div className="flex gap-1.5">
+      <div className="flex gap-1">
         {SYMBOL_ROW.map((character) => (
           <KeyboardKey
             key={character}
@@ -184,7 +186,7 @@ export function VirtualKeyboard({
         ))}
       </div>
 
-      <div className="flex gap-1.5">
+      <div className="flex gap-1">
         <KeyboardKey label="Espacio" onPress={() => sendCharacter(' ')} wide>
           Espacio
         </KeyboardKey>

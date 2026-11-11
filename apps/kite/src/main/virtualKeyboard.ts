@@ -10,8 +10,7 @@ import {
 import { registerWindow } from './windowRegistry';
 import { IPC } from '../shared/ipc';
 
-const KEYBOARD_MAX_WIDTH = 1024;
-const KEYBOARD_INITIAL_HEIGHT = 420;
+const KEYBOARD_INITIAL_HEIGHT = 320;
 const KEYBOARD_MIN_HEIGHT = 120;
 
 let keyboardWindow: BrowserWindow | null = null;
@@ -47,14 +46,14 @@ function watchTarget(win: BrowserWindow): void {
 
 function layoutKeyboard(win: BrowserWindow, height: number): void {
   const area = getLayoutArea();
-  const width = Math.min(area.width, KEYBOARD_MAX_WIDTH);
+  const width = area.width;
   const clampedHeight = Math.max(
     KEYBOARD_MIN_HEIGHT,
     Math.min(area.height, Math.ceil(height)),
   );
 
   win.setBounds({
-    x: area.x + Math.round((area.width - width) / 2),
+    x: area.x,
     y: area.y + area.height - clampedHeight,
     width,
     height: clampedHeight,
